@@ -302,7 +302,7 @@ function main(): void {
   }
 
   if (options.noise > 0) {
-    process.stdout.write(runNoiseCheck(strategy, config, options, data));
+    process.stdout.write(runNoiseCheck(strategy, config, options, data, result.metrics.netProfitPercent));
   }
 
   if (options.pine) {
@@ -327,6 +327,7 @@ function runNoiseCheck(
   config: BacktestConfig,
   options: Options,
   data: Bar[],
+  realReturn: number,
 ): string {
   // The baseline has to look like the instrument it is standing in for. Price
   // level, volatility and bar spacing all come from the loaded data — a random
@@ -356,16 +357,28 @@ function runNoiseCheck(
   const worst = returns[0];
   const profitable = returns.filter(r => r > 0).length;
 
+  // Where the real result sits in the distribution is the whole point. A return
+  // that beats the median but sits inside the range is not evidence of an edge:
+  // random data produced the same thing, just less often.
+  const beaten = returns.filter(r => r < realReturn).length;
+  const percentile = (beaten / returns.length) * 100;
+  const verdict =
+    percentile >= 95
+      ? "Outside almost everything noise produced. Worth investigating — still one sample."
+      : percentile >= 80
+        ? "Better than most noise runs, but inside the range noise reaches. Not yet evidence of an edge."
+        : "Inside the middle of what random data produces on its own. No edge is visible here.";
+
   return [
     `  NOISE CHECK  (${options.noise} random-walk runs, zero drift)`,
     `    ${"Matched to".padEnd(24)}start ${startPrice.toFixed(2)}, volatility ${(volatility * 100).toFixed(3)}%/bar`,
-    `    ${"Mean return".padEnd(24)}${formatPercent(mean)}`,
-    `    ${"Median return".padEnd(24)}${formatPercent(median)}`,
-    `    ${"Best / worst".padEnd(24)}${formatPercent(best)} / ${formatPercent(worst)}`,
-    `    ${"Runs in profit".padEnd(24)}${profitable} of ${options.noise}`,
+    `    ${"Your result".padEnd(24)}${formatPercent(realReturn)}`,
+    `    ${"Noise mean / median".padEnd(24)}${formatPercent(mean)} / ${formatPercent(median)}`,
+    `    ${"Noise best / worst".padEnd(24)}${formatPercent(best)} / ${formatPercent(worst)}`,
+    `    ${"Noise runs in profit".padEnd(24)}${profitable} of ${options.noise}`,
+    `    ${"Your percentile".padEnd(24)}${percentile.toFixed(0)}th`,
     "",
-    "    On data with no edge, a sound strategy loses roughly its costs.",
-    "    Compare your real-data return against this spread before trusting it.",
+    `    ${verdict}`,
     "",
   ].join("\n");
 }
