@@ -11,7 +11,7 @@ npm install
 npm run dev                  # the app, at http://localhost:5273
 npm run backtest -- --list   # or from the terminal
 npm run sweep -- --synthetic # search Supertrend + EMA parameters
-npm test                     # 274 tests
+npm test                     # 287 tests
 ```
 
 ---
@@ -189,7 +189,7 @@ src/export/       TradingView Pine v5 generator
 src/ui/           React app; backtests run in a Web Worker
 src/cli/          data downloader, backtest runner, sweep runner
 server/proxy.ts   dev-only CORS proxy for the data providers
-tests/            274 tests
+tests/            287 tests
 ```
 
 ---

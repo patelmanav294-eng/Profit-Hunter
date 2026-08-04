@@ -7,6 +7,7 @@
  * without any custom serialisation.
  */
 
+import { inferIntervalMs } from "../data/statistics";
 import { generateBars } from "../data/synthetic";
 import { runBacktest, type BacktestConfig, type BacktestResult } from "../engine/backtest";
 import type { Strategy } from "../engine/strategy";
@@ -78,7 +79,7 @@ function runNoiseComparison(message: RunMessage, realReturn: number): NoiseSumma
       volatility: message.noiseVolatility,
       drift: 0,
       seed: 90_000 + i,
-      intervalMs: inferInterval(message.bars),
+      intervalMs: inferIntervalMs(message.bars),
     });
     returns.push(runBacktest(noiseBars, message.strategy, message.config).metrics.netProfitPercent);
   }
@@ -95,12 +96,4 @@ function runNoiseComparison(message: RunMessage, realReturn: number): NoiseSumma
     profitable: returns.filter(r => r > 0).length,
     percentile: beaten / returns.length,
   };
-}
-
-function inferInterval(bars: Bar[]): number {
-  if (bars.length < 2) return 3_600_000;
-  const gaps: number[] = [];
-  for (let i = 1; i < Math.min(bars.length, 200); i++) gaps.push(bars[i].time - bars[i - 1].time);
-  gaps.sort((a, b) => a - b);
-  return gaps[Math.floor(gaps.length / 2)] || 3_600_000;
 }

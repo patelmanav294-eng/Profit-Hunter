@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 
 import { describeParseFailure, parseCsv } from "../data/csv";
 import { getInstrument } from "../data/instruments";
+import { inferIntervalMs, measureVolatility } from "../data/statistics";
 import { generateBars } from "../data/synthetic";
 import { runBacktest, type BacktestConfig } from "../engine/backtest";
 import type { Strategy } from "../engine/strategy";
@@ -301,7 +302,7 @@ function main(): void {
   }
 
   if (options.noise > 0) {
-    process.stdout.write(runNoiseCheck(strategy, config, options));
+    process.stdout.write(runNoiseCheck(strategy, config, options, data));
   }
 
   if (options.pine) {
@@ -321,15 +322,27 @@ function main(): void {
  * distribution on real prices has probably found something. One landing in the
  * middle has found the distribution itself.
  */
-function runNoiseCheck(strategy: Strategy, config: BacktestConfig, options: Options): string {
-  const startPrice = options.symbol.toUpperCase().includes("JPY") ? 150 : 1.1;
+function runNoiseCheck(
+  strategy: Strategy,
+  config: BacktestConfig,
+  options: Options,
+  data: Bar[],
+): string {
+  // The baseline has to look like the instrument it is standing in for. Price
+  // level, volatility and bar spacing all come from the loaded data — a random
+  // walk at the wrong price level pays a wildly wrong spread in relative terms,
+  // which makes the comparison meaningless rather than merely approximate.
+  const startPrice = data[0].close;
+  const volatility = measureVolatility(data);
+  const intervalMs = inferIntervalMs(data);
   const returns: number[] = [];
 
   for (let i = 0; i < options.noise; i++) {
     const noiseBars = generateBars({
-      bars: options.bars,
+      bars: data.length,
       startPrice,
-      volatility: options.volatility,
+      volatility,
+      intervalMs,
       drift: 0,
       seed: 10_000 + i,
     });
@@ -345,6 +358,7 @@ function runNoiseCheck(strategy: Strategy, config: BacktestConfig, options: Opti
 
   return [
     `  NOISE CHECK  (${options.noise} random-walk runs, zero drift)`,
+    `    ${"Matched to".padEnd(24)}start ${startPrice.toFixed(2)}, volatility ${(volatility * 100).toFixed(3)}%/bar`,
     `    ${"Mean return".padEnd(24)}${formatPercent(mean)}`,
     `    ${"Median return".padEnd(24)}${formatPercent(median)}`,
     `    ${"Best / worst".padEnd(24)}${formatPercent(best)} / ${formatPercent(worst)}`,

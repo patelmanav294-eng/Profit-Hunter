@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import type { Timeframe } from "../../data/adapters";
 import { parseCsv } from "../../data/csv";
 import { INSTRUMENTS } from "../../data/instruments";
+import { measureVolatility } from "../../data/statistics";
 import { generateBars } from "../../data/synthetic";
 import type { Bar } from "../../engine/types";
 
@@ -197,25 +198,4 @@ export function DataPanel({ dataset, symbol, onSymbolChange, onLoad }: Props) {
       {error && <div className="error-box">{error}</div>}
     </div>
   );
-}
-
-/**
- * Standard deviation of log returns, used to match the noise comparison to the
- * real data's volatility. Comparing against random walks that are far calmer or
- * wilder than the instrument would make the percentile meaningless.
- */
-export function measureVolatility(bars: Bar[]): number {
-  if (bars.length < 3) return 0.002;
-
-  const returns: number[] = [];
-  for (let i = 1; i < bars.length; i++) {
-    const previous = bars[i - 1].close;
-    if (previous > 0 && bars[i].close > 0) returns.push(Math.log(bars[i].close / previous));
-  }
-  if (returns.length < 2) return 0.002;
-
-  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance = returns.reduce((sum, r) => sum + (r - mean) ** 2, 0) / (returns.length - 1);
-  const sd = Math.sqrt(variance);
-  return Number.isFinite(sd) && sd > 0 ? sd : 0.002;
 }
