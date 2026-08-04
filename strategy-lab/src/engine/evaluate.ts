@@ -55,6 +55,11 @@ export function compileIndicators(bars: Bar[], specs: IndicatorSpec[]): Indicato
         table[spec.id] = result[spec.output];
         break;
       }
+      case "supertrend": {
+        const result = ind.supertrend(bars, spec.period, spec.multiplier);
+        table[spec.id] = result[spec.output];
+        break;
+      }
       case "highest":
         table[spec.id] = ind.highest(source, spec.period);
         break;

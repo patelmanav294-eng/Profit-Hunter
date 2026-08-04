@@ -18,6 +18,7 @@ import { runBacktest, type BacktestConfig } from "../engine/backtest";
 import type { Strategy } from "../engine/strategy";
 import { validateStrategy } from "../engine/strategy";
 import type { Bar } from "../engine/types";
+import { strategyToPine } from "../export/pine";
 import { collectWarnings, formatPercent, formatReport, formatTrades } from "../report";
 import { PRESETS } from "../strategies/presets";
 
@@ -36,6 +37,7 @@ interface Options {
   slippage: number;
   noise: number;
   trades: number;
+  pine: boolean;
   json: boolean;
   optimistic: boolean;
   list: boolean;
@@ -55,6 +57,7 @@ const DEFAULTS: Options = {
   slippage: 0,
   noise: 0,
   trades: 20,
+  pine: false,
   json: false,
   optimistic: false,
   list: false,
@@ -123,6 +126,9 @@ function parseArgs(argv: string[]): Options {
       case "--trades":
         options.trades = num();
         break;
+      case "--pine":
+        options.pine = true;
+        break;
       case "--json":
         options.json = true;
         break;
@@ -165,6 +171,7 @@ Strategy Lab — backtest runner
   --noise <n>                 Also run against n random-walk datasets and report
                               the distribution — a quick curve-fit check
   --trades <n>                How many trades to print (default 20, 0 to hide)
+  --pine                      Also emit a TradingView Pine v5 script for this strategy
   --json                      Emit machine-readable JSON instead of a report
   --list                      Show the built-in strategies
   --help, -h                  This message
@@ -286,6 +293,15 @@ function main(): void {
 
   if (options.noise > 0) {
     process.stdout.write(runNoiseCheck(strategy, config, options));
+  }
+
+  if (options.pine) {
+    const script = strategyToPine(strategy, {
+      instrument: config.instrument,
+      costs: config.costs,
+      initialCapital: options.balance,
+    });
+    process.stdout.write(`${"─".repeat(64)}\n${script}\n`);
   }
 }
 

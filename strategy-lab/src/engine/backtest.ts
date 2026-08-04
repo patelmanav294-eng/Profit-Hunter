@@ -169,14 +169,22 @@ export function runBacktest(bars: Bar[], strategy: Strategy, config: BacktestCon
     if (!position && pendingEntry) {
       const direction: Direction = pendingEntry;
       const entryPrice = adjustFill(bar.open, direction, "entry", halfSpread, slip);
-      const stopLoss = resolveStopPrice(entryPrice, direction, strategy.stopLoss, table, i, instrument);
+
+      // Risk levels are sized from the SIGNAL bar's indicators, not this one's.
+      // The fill happens at this bar's open, when its own high, low and close
+      // have not happened yet — reading ATR[i] here would set the stop using a
+      // range the trader could not have measured. The gap is invisible to the
+      // truncation tests, which only catch dependence on bars after i, not on
+      // the unfinished remainder of bar i itself.
+      const signalIndex = i - 1;
+      const stopLoss = resolveStopPrice(entryPrice, direction, strategy.stopLoss, table, signalIndex, instrument);
       const takeProfit = resolveTargetPrice(
         entryPrice,
         direction,
         strategy.takeProfit,
         stopLoss,
         table,
-        i,
+        signalIndex,
         instrument,
       );
       const lots = resolveLots(strategy.sizing, balance, entryPrice, stopLoss, instrument);

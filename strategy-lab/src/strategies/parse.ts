@@ -330,6 +330,9 @@ class Parser {
       case "stoch":
       case "stochastic":
         return this.parseStochastic(token.position);
+      case "supertrend":
+      case "st":
+        return this.parseSupertrend();
       case "highest":
       case "hh":
         return this.parseExtreme("highest", token.position);
@@ -338,7 +341,7 @@ class Parser {
         return this.parseExtreme("lowest", token.position);
       default:
         throw new RuleParseError(
-          `"${name}" is not an indicator this parser knows. Available: sma, ema, rsi, atr, adx, macd, bb, stoch, highest, lowest — plus close, open, high, low.`,
+          `"${name}" is not an indicator this parser knows. Available: sma, ema, rsi, atr, adx, macd, bb, stoch, supertrend, highest, lowest — plus close, open, high, low.`,
           token.position,
         );
     }
@@ -421,6 +424,34 @@ class Parser {
       kPeriod,
       smooth,
       dPeriod,
+      output,
+    });
+  }
+
+  /**
+   * `supertrend 10 3` is the trailing line; `supertrend direction 10 3` is the
+   * +1/-1 trend flag. Unlike Bollinger, a bare `supertrend` is unambiguous — the
+   * line is what people mean when they compare it against price.
+   */
+  private parseSupertrend(): string {
+    let output: "line" | "direction" = "line";
+    const next = this.peek();
+    if (next?.type === "word") {
+      if (next.value === "direction" || next.value === "dir" || next.value === "trend") {
+        output = "direction";
+        this.index++;
+      } else if (next.value === "line") {
+        this.index++;
+      }
+    }
+
+    const period = this.optionalNumber() ?? 10;
+    const multiplier = this.optionalNumber() ?? 3;
+    return this.register({
+      id: `st_${output}_${period}_${multiplier}`,
+      type: "supertrend",
+      period,
+      multiplier,
       output,
     });
   }
@@ -541,6 +572,8 @@ function describeIndicator(spec: IndicatorSpec | undefined, fallbackId: string):
       return `bb ${spec.output} ${spec.period} ${spec.stdDev}`;
     case "stoch":
       return `stoch ${spec.output} ${spec.kPeriod} ${spec.smooth} ${spec.dPeriod}`;
+    case "supertrend":
+      return `supertrend ${spec.output} ${spec.period} ${spec.multiplier}`;
     case "highest":
       return `highest ${spec.period}`;
     case "lowest":

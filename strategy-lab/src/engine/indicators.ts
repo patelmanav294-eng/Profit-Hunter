@@ -273,6 +273,70 @@ export function adx(bars: Bar[], period: number): Series {
   return out;
 }
 
+export interface SupertrendResult {
+  /** The trailing line itself — sits below price in an uptrend, above in a downtrend. */
+  line: Series;
+  /** +1 while the trend is up, -1 while it is down. */
+  direction: Series;
+}
+
+/**
+ * Supertrend.
+ *
+ * An ATR band around the bar's midpoint that ratchets in the direction of the
+ * trend and only flips when price closes through it.
+ *
+ * The two ratchet rules are what make it a trend filter rather than a rescaled
+ * ATR: each band may only tighten towards price, and it resets when the
+ * previous close broke through. Both compare against the PREVIOUS bar's final
+ * band, never the current one, which is what keeps the whole thing causal.
+ */
+export function supertrend(bars: Bar[], period: number, multiplier: number): SupertrendResult {
+  assertPeriod(period);
+  const line: Series = new Array(bars.length).fill(undefined);
+  const direction: Series = new Array(bars.length).fill(undefined);
+
+  const atrSeries = atr(bars, period);
+  let finalUpper: number | undefined;
+  let finalLower: number | undefined;
+  let trend: number | undefined;
+
+  for (let i = 0; i < bars.length; i++) {
+    const atrValue = atrSeries[i];
+    if (atrValue === undefined) continue;
+
+    const bar = bars[i];
+    const midpoint = (bar.high + bar.low) / 2;
+    const basicUpper = midpoint + multiplier * atrValue;
+    const basicLower = midpoint - multiplier * atrValue;
+    const previousClose = i > 0 ? bars[i - 1].close : bar.close;
+
+    // Tighten towards price, or reset if the last close broke through.
+    finalUpper =
+      finalUpper === undefined || basicUpper < finalUpper || previousClose > finalUpper ? basicUpper : finalUpper;
+    finalLower =
+      finalLower === undefined || basicLower > finalLower || previousClose < finalLower ? basicLower : finalLower;
+
+    if (trend === undefined) {
+      // Seed from where price sits relative to the midpoint on the first bar
+      // that has an ATR to work with. TradingView instead seeds unconditionally
+      // into a downtrend, which can manufacture a spurious first flip; the two
+      // converge as soon as price closes through a band, so expect a difference
+      // only in the opening handful of bars when comparing against a chart.
+      trend = bar.close >= midpoint ? 1 : -1;
+    } else if (bar.close > finalUpper) {
+      trend = 1;
+    } else if (bar.close < finalLower) {
+      trend = -1;
+    }
+
+    direction[i] = trend;
+    line[i] = trend === 1 ? finalLower : finalUpper;
+  }
+
+  return { line, direction };
+}
+
 export interface DirectionalIndex {
   plusDI: Series;
   minusDI: Series;

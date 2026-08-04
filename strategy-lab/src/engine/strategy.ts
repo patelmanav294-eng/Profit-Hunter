@@ -36,6 +36,14 @@ export type IndicatorSpec =
       source?: PriceField;
     }
   | { id: string; type: "stoch"; kPeriod: number; smooth: number; dPeriod: number; output: "k" | "d" }
+  | {
+      id: string;
+      type: "supertrend";
+      period: number;
+      multiplier: number;
+      /** "line" is the trailing stop level; "direction" is +1 up, -1 down. */
+      output: "line" | "direction";
+    }
   | { id: string; type: "highest"; period: number; source?: PriceField }
   | { id: string; type: "lowest"; period: number; source?: PriceField };
 

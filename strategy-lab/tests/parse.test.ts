@@ -153,11 +153,13 @@ describe("boolean structure", () => {
 
 describe("error reporting", () => {
   it("names an unknown indicator and lists what is available", () => {
-    const result = tryParseRule("supertrend > 5");
+    const result = tryParseRule("ichimoku > 5");
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("unreachable");
-    expect(result.error).toMatch(/supertrend/);
+    expect(result.error).toMatch(/ichimoku/);
     expect(result.error).toMatch(/sma, ema, rsi/);
+    // The list the user is pointed at must stay in step with what parses.
+    expect(result.error).toMatch(/supertrend/);
   });
 
   it("asks which Bollinger band was meant", () => {

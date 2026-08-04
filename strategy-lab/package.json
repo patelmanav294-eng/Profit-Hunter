@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "backtest": "tsx src/cli/run.ts",
-    "proxy": "tsx server/proxy.ts"
+    "proxy": "tsx server/proxy.ts",
+    "sweep": "tsx src/cli/sweep.ts"
   },
   "dependencies": {
     "react": "^19.2.1",

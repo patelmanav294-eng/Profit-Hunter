@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getInstrument } from "../data/instruments";
 import type { BacktestConfig, BacktestResult } from "../engine/backtest";
+import { strategyToPine } from "../export/pine";
 import { collectWarnings } from "../report";
 import { buildStrategy, DEFAULT_FORM, formFromStrategy, type StrategyForm } from "../strategies/build";
 import { PRESETS } from "../strategies/presets";
@@ -9,6 +10,7 @@ import type { NoiseSummary, ResponseMessage, RunMessage } from "./backtest.worke
 import { DataPanel, type Dataset } from "./components/DataPanel";
 import { EquityChart } from "./components/EquityChart";
 import { MetricsGrid } from "./components/MetricsGrid";
+import { PineDialog } from "./components/PineDialog";
 import { StrategyPanel } from "./components/StrategyPanel";
 import { TradeTable } from "./components/TradeTable";
 
@@ -40,6 +42,7 @@ export function App() {
   const [noise, setNoise] = useState<NoiseSummary | undefined>();
   const [runError, setRunError] = useState<string | null>(null);
   const [phase, setPhase] = useState<string | null>(null);
+  const [pineScript, setPineScript] = useState<string | null>(null);
 
   const worker = useRef<Worker | null>(null);
   const requestId = useRef(0);
@@ -130,16 +133,36 @@ export function App() {
     URL.revokeObjectURL(url);
   }, [build]);
 
+  const showPine = useCallback(() => {
+    if (!build.ok) return;
+    setPineScript(
+      strategyToPine(build.strategy, {
+        instrument: getInstrument(symbol),
+        costs: {
+          spreadPips: costs.spreadPips,
+          commissionPerLotPerSide: costs.commission,
+          slippagePips: costs.slippagePips,
+        },
+        initialCapital: costs.balance,
+      }),
+    );
+  }, [build, symbol, costs]);
+
   const warnings = result ? collectWarnings(result) : [];
   const canRun = dataset !== null && build.ok && phase === null;
 
   return (
     <div className="app">
+      {pineScript && <PineDialog script={pineScript} onClose={() => setPineScript(null)} />}
+
       <header className="topbar">
         <h1>Strategy Lab</h1>
         <span className="tagline">rules in, honest numbers out</span>
         <div className="spacer" />
         {phase && <span className="status">{phase}…</span>}
+        <button className="ghost" onClick={showPine} disabled={!build.ok}>
+          Pine Script
+        </button>
         <button className="ghost" onClick={exportStrategy} disabled={!build.ok}>
           Export JSON
         </button>

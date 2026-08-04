@@ -65,6 +65,61 @@ describe("execution timing", () => {
   });
 });
 
+describe("the entry bar's own range is not yet known when it fills", () => {
+  /**
+   * The fill happens at bar k's OPEN. Bar k's high, low and close have not
+   * happened yet at that instant, so nothing about the position — stop
+   * distance, target, or size — may depend on them.
+   *
+   * The truncation test cannot catch this: it removes bars AFTER k, and an
+   * engine reading ATR[k] agrees with itself in both runs. Perturbing bar k's
+   * own range is what exposes it.
+   */
+  const atrStop: Strategy = {
+    name: "ATR Stop",
+    indicators: [{ id: "atr14", type: "atr", period: 14 }],
+    long: { entry: { type: "always" } },
+    stopLoss: { mode: "atr", multiple: 2, atrId: "atr14" },
+    sizing: { mode: "riskPercent", percent: 1 },
+  };
+
+  const data = generateBars({ bars: 300, startPrice: 100, volatility: 0.01, seed: 77 });
+  const original = runBacktest(data, atrStop, baseConfig);
+  const firstTrade = original.trades[0];
+
+  it("has a trade with a stop to inspect", () => {
+    expect(firstTrade).toBeDefined();
+    expect(firstTrade.initialStopLoss).toBeDefined();
+  });
+
+  it("keeps the stop, target and size unchanged when only the entry bar's range moves", () => {
+    const k = firstTrade.entryBarIndex;
+    const entryBar = data[k];
+
+    // Widen bar k dramatically while leaving its open — the fill price — alone.
+    const perturbed = data.map((bar, index) =>
+      index === k
+        ? {
+            ...bar,
+            high: Math.max(entryBar.high, entryBar.open) * 1.05,
+            low: Math.min(entryBar.low, entryBar.open) * 0.95,
+          }
+        : bar,
+    );
+
+    const rerun = runBacktest(perturbed, atrStop, baseConfig);
+    const match = rerun.trades.find(t => t.entryBarIndex === k);
+
+    expect(match, "the trade entering on the perturbed bar disappeared").toBeDefined();
+    expect(match!.entryPrice).toBeCloseTo(firstTrade.entryPrice, 10);
+    expect(
+      match!.initialStopLoss,
+      "stop distance moved with the entry bar's own range — it was sized from information that did not exist yet",
+    ).toBeCloseTo(firstTrade.initialStopLoss!, 10);
+    expect(match!.lots).toBeCloseTo(firstTrade.lots, 10);
+  });
+});
+
 describe("transaction costs", () => {
   it("charges exactly one full spread per round trip", () => {
     const data = bars([flat(100), flat(110), flat(120), flat(130)]);

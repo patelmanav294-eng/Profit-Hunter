@@ -8,6 +8,7 @@
  */
 
 import type { Strategy } from "../engine/strategy";
+import { DEFAULT_SUPERTREND_EMA, supertrendEmaStrategy } from "./supertrendEma";
 
 export const emaCrossover: Strategy = {
   name: "EMA 20/50 Crossover",
@@ -134,7 +135,15 @@ export const bollingerSqueeze: Strategy = {
   maxBarsInTrade: 40,
 };
 
+/**
+ * Supertrend timing with an EMA trend filter — the shape the parameter sweep
+ * explores. Included here so it can be loaded, edited and run like any other
+ * starting point.
+ */
+export const supertrendEma: Strategy = supertrendEmaStrategy(DEFAULT_SUPERTREND_EMA);
+
 export const PRESETS: Strategy[] = [
+  supertrendEma,
   emaCrossover,
   rsiMeanReversion,
   donchianBreakout,
