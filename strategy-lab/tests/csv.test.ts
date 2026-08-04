@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { describeParseFailure, parseCsv, parseTimestamp, toCsv } from "../src/data/csv";
-import { aggregate } from "../src/data/adapters/yahoo";
+import { aggregate, suggestSymbol } from "../src/data/adapters/yahoo";
 import { dropUnclosedBar } from "../src/data/adapters";
 
 describe("parseCsv", () => {
@@ -248,5 +248,33 @@ describe("dropUnclosedBar", () => {
       { time: Date.UTC(2024, 0, 1, 9), open: 1, high: 1, low: 1, close: 1 },
     ];
     expect(dropUnclosedBar(bars, "H1", now)).toHaveLength(2);
+  });
+});
+
+describe("suggesting a ticker Yahoo actually has", () => {
+  it("redirects spot-gold spellings to the futures or ETF ticker", () => {
+    // XAUUSD=X looks like it belongs beside EURUSD=X and simply does not exist.
+    for (const attempt of ["XAUUSD=X", "XAUUSD", "xauusd=x", "GOLD"]) {
+      expect(suggestSymbol(attempt), attempt).toMatch(/GC=F/);
+    }
+  });
+
+  it("redirects silver and oil the same way", () => {
+    expect(suggestSymbol("XAGUSD=X")).toMatch(/SI=F/);
+    expect(suggestSymbol("WTIUSD")).toMatch(/CL=F/);
+  });
+
+  it("adds the =X suffix to a bare currency pair", () => {
+    expect(suggestSymbol("EURUSD")).toMatch(/EURUSD=X/);
+    expect(suggestSymbol("GBPJPY")).toMatch(/=X/);
+  });
+
+  it("says nothing for a ticker it has no opinion about", () => {
+    expect(suggestSymbol("AAPL")).toBeUndefined();
+    expect(suggestSymbol("^GSPC")).toBeUndefined();
+  });
+
+  it("does not mistake a real FX ticker for a bare pair", () => {
+    expect(suggestSymbol("EURUSD=X")).toBeUndefined();
   });
 });

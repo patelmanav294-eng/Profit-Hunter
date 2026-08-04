@@ -3,7 +3,7 @@
  * Parameter sweep runner.
  *
  *   npm run sweep -- --synthetic --bars 8000
- *   npm run sweep -- --csv ./XAUUSD_H1.csv --symbol XAUUSD --win-rate 60
+ *   npm run sweep -- --csv ./GOLD_H1.csv --symbol XAUUSD --win-rate 60
  *   npm run sweep -- --csv ./data.csv --pine        # print the winner's Pine script
  */
 

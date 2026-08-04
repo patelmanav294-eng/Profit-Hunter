@@ -265,7 +265,7 @@ export function describeParseFailure(result: ParseResult, path: string): string 
   }
 
   lines.push("  To download real data instead:");
-  lines.push('    npm run fetch -- --symbol "XAUUSD=X" --timeframe H1 --out XAUUSD_H1.csv');
+  lines.push('    npm run fetch -- --symbol "GC=F" --timeframe H1 --out GOLD_H1.csv');
 
   return lines.join("\n");
 }

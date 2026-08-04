@@ -5,7 +5,7 @@
  * Exists so getting data is one command rather than a hunt through a broker's
  * export menus:
  *
- *   npm run fetch -- --symbol "XAUUSD=X" --timeframe H1 --out XAUUSD_H1.csv
+ *   npm run fetch -- --symbol "GC=F" --timeframe H1 --out GOLD_H1.csv
  *   npm run fetch -- --source binance --symbol BTCUSDT --timeframe H4 --out BTC_H4.csv
  *
  * Both providers are keyless. Yahoo limits how far back each interval goes —
@@ -53,16 +53,19 @@ Strategy Lab — historical data downloader
 
 Symbols
 
-  yahoo     Spot gold  XAUUSD=X      Gold futures  GC=F
+  yahoo     Gold       GC=F          Gold ETF      GLD
+            Silver     SI=F          WTI crude     CL=F
             EUR/USD    EURUSD=X      GBP/USD       GBPUSD=X
             USD/JPY    USDJPY=X      S&P 500       ^GSPC
-            Any Yahoo Finance ticker works. FX pairs end in "=X".
+
+            FX pairs end in "=X". Yahoo has no spot-gold FX pair —
+            XAUUSD=X does not exist; use GC=F or GLD.
 
   binance   Exchange pairs with no separator: BTCUSDT, ETHUSDT, SOLUSDT
 
 Then feed the file to a backtest or a sweep:
 
-  npm run sweep -- --csv ./XAUUSD_H1.csv --symbol XAUUSD --win-rate 60
+  npm run sweep -- --csv ./GOLD_H1.csv --symbol XAUUSD --win-rate 60
 `;
 
 function parseArgs(argv: string[]): Options {
@@ -148,14 +151,19 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     process.stderr.write(`\n  Fetch failed: ${(error as Error).message}\n\n`);
-    process.stderr.write(`  Check the symbol spelling — ${source.symbolHint}\n\n`);
-    process.exit(1);
+    process.stderr.write(`  Symbols: ${source.symbolHint}\n\n`);
+    // Not process.exit(): killing the process while the fetch's handles are
+    // still unwinding trips a libuv assertion on Windows, which buries the
+    // message above under a crash dump.
+    process.exitCode = 1;
+    return;
   }
 
   if (bars.length === 0) {
     process.stderr.write(`\n  The provider returned no bars for "${options.symbol}".\n`);
     process.stderr.write(`  ${source.symbolHint}\n\n`);
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   writeFileSync(resolve(outPath), toCsv(bars), "utf8");

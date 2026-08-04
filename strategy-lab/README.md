@@ -99,7 +99,7 @@ npm run backtest -- --strategy "RSI Mean Reversion" --synthetic --json
 Searching a grid for the best parameters is the fastest way to fool yourself, so the sweep is built to make that difficult.
 
 ```bash
-npm run sweep -- --csv ./XAUUSD_H1.csv --symbol XAUUSD --win-rate 60
+npm run sweep -- --csv ./GOLD_H1.csv --symbol XAUUSD --win-rate 60
 npm run sweep -- --synthetic --bars 9000 --pine
 ```
 
@@ -143,11 +143,11 @@ Where the two genuinely differ — commission rounding, and which level filled o
 **Download it** — one command, no account, no API key:
 
 ```bash
-npm run fetch -- --symbol "XAUUSD=X" --timeframe H1 --out XAUUSD_H1.csv
+npm run fetch -- --symbol "GC=F" --timeframe H1 --out GOLD_H1.csv
 npm run fetch -- --source binance --symbol BTCUSDT --timeframe H4 --out BTC_H4.csv
 ```
 
-Yahoo tickers: spot gold `XAUUSD=X`, gold futures `GC=F`, FX pairs like `EURUSD=X`, indices like `^GSPC`. Hourly history reaches back about two years, daily about ten. Binance takes exchange pairs (`BTCUSDT`) and has no such limit.
+Yahoo tickers: gold futures `GC=F` or the gold ETF `GLD`, silver `SI=F`, FX pairs like `EURUSD=X`, indices like `^GSPC`. Yahoo has no spot-gold FX pair — `XAUUSD=X` does not exist, and a wrong ticker gets a suggestion instead of a bare 404. Hourly history reaches back about two years, daily about ten. Binance takes exchange pairs (`BTCUSDT`) and has no such limit.
 
 **CSV import** handles MetaTrader exports, TradingView downloads and generic dumps. The parser sniffs the delimiter, column order and date format; bars whose high/low do not contain their open/close are rejected rather than repaired, and duplicate timestamps are dropped.
 

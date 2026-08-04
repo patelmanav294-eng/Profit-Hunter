@@ -30,10 +30,36 @@ const MAX_RANGE: Record<string, string> = {
   "1wk": "10y",
 };
 
+/**
+ * Suggests a working ticker for symbols people reasonably expect to exist.
+ *
+ * Yahoo carries gold and silver as futures contracts, not as spot FX pairs —
+ * `XAUUSD=X` looks like it should work alongside `EURUSD=X` and simply 404s.
+ */
+export function suggestSymbol(symbol: string): string | undefined {
+  const upper = symbol.toUpperCase();
+
+  if (upper.includes("XAU") || upper.startsWith("GOLD")) {
+    return "GC=F for gold futures, or GLD for the gold ETF — Yahoo has no spot-gold FX pair";
+  }
+  if (upper.includes("XAG") || upper.startsWith("SILVER")) {
+    return "SI=F for silver futures, or SLV for the silver ETF";
+  }
+  if (upper.includes("WTI") || upper.includes("OIL")) {
+    return "CL=F for WTI crude, or BZ=F for Brent";
+  }
+  // A bare six-letter currency pair needs the suffix Yahoo uses for FX.
+  if (/^[A-Z]{6}$/.test(upper)) {
+    return `${upper}=X — Yahoo FX tickers need the "=X" suffix`;
+  }
+  return undefined;
+}
+
 export const yahooSource: MarketDataSource = {
   id: "yahoo",
   label: "Yahoo Finance (FX, indices, stocks)",
-  symbolHint: 'FX pairs use an "=X" suffix: EURUSD=X, GBPJPY=X. Gold is GC=F, S&P 500 is ^GSPC.',
+  symbolHint:
+    'FX pairs use an "=X" suffix: EURUSD=X, GBPJPY=X. Gold is GC=F (futures) or GLD (ETF), S&P 500 is ^GSPC.',
 
   async fetchBars(request: FetchRequest, fetchImpl: typeof fetch = fetch): Promise<Bar[]> {
     const interval = INTERVALS[request.timeframe];
@@ -53,11 +79,16 @@ export const yahooSource: MarketDataSource = {
       },
     );
     if (!response.ok) {
-      const hint =
-        response.status === 403 || response.status === 429
-          ? " — Yahoo is rate-limiting or blocking this request; wait a minute and retry"
-          : " — check the ticker";
-      throw new Error(`Yahoo returned ${response.status} for ${request.symbol}${hint}`);
+      if (response.status === 403 || response.status === 429) {
+        throw new Error(
+          `Yahoo returned ${response.status} for ${request.symbol} — rate-limited or blocked; wait a minute and retry`,
+        );
+      }
+      const suggestion = suggestSymbol(request.symbol);
+      throw new Error(
+        `Yahoo has no ticker "${request.symbol}" (HTTP ${response.status})` +
+          (suggestion ? `. Try ${suggestion}` : " — check the spelling"),
+      );
     }
 
     const payload = (await response.json()) as YahooResponse;
