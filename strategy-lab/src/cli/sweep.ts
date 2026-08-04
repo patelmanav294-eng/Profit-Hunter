@@ -39,6 +39,7 @@ interface Options {
   top: number;
   pine: boolean;
   out?: string;
+  saveStrategy?: string;
   help: boolean;
 }
 
@@ -84,6 +85,8 @@ Strategy Lab — Supertrend + EMA parameter sweep
   --top <n>              Rows to print (default 10)
   --pine                 Print the winner as a TradingView Pine v5 script
   --out <path>           Write the Pine script to a file instead of stdout
+  --save-strategy <path> Write the winner as strategy JSON, ready to iterate on:
+                           npm run backtest -- --strategy <path> --csv <data> --noise 50
   --help, -h             This message
 
 The grid: Supertrend period x multiplier x EMA period x stop ATR multiple.
@@ -159,6 +162,9 @@ function parseArgs(argv: string[]): Options {
         break;
       case "--out":
         options.out = next();
+        break;
+      case "--save-strategy":
+        options.saveStrategy = next();
         break;
       case "--help":
       case "-h":
@@ -251,6 +257,24 @@ function main(): void {
   process.stderr.write("\r                    \r");
 
   process.stdout.write(formatSweep(report, options, bars));
+
+  if (options.saveStrategy) {
+    if (!report.best) {
+      process.stderr.write("No winner to save.\n");
+      process.exitCode = 1;
+      return;
+    }
+    const strategy = buildFromSweepParams(report.best.params, {
+      rewardRatio: options.reward,
+      riskPercent: options.risk,
+    });
+    writeFileSync(resolve(options.saveStrategy), `${JSON.stringify(strategy, null, 2)}\n`, "utf8");
+    process.stdout.write(`  Winner saved to ${options.saveStrategy}\n`);
+    process.stdout.write(
+      `  Check it against random data:\n` +
+        `    npm run backtest -- --strategy ${options.saveStrategy} --csv <your-data.csv> --symbol ${options.symbol} --noise 50\n\n`,
+    );
+  }
 
   if (options.pine || options.out) {
     if (!report.best) {
