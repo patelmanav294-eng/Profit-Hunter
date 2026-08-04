@@ -11,7 +11,7 @@ npm install
 npm run dev                  # the app, at http://localhost:5273
 npm run backtest -- --list   # or from the terminal
 npm run sweep -- --synthetic # search Supertrend + EMA parameters
-npm test                     # 265 tests
+npm test                     # 274 tests
 ```
 
 ---
@@ -140,7 +140,24 @@ Where the two genuinely differ — commission rounding, and which level filled o
 
 ## Data
 
+**Download it** — one command, no account, no API key:
+
+```bash
+npm run fetch -- --symbol "XAUUSD=X" --timeframe H1 --out XAUUSD_H1.csv
+npm run fetch -- --source binance --symbol BTCUSDT --timeframe H4 --out BTC_H4.csv
+```
+
+Yahoo tickers: spot gold `XAUUSD=X`, gold futures `GC=F`, FX pairs like `EURUSD=X`, indices like `^GSPC`. Hourly history reaches back about two years, daily about ten. Binance takes exchange pairs (`BTCUSDT`) and has no such limit.
+
 **CSV import** handles MetaTrader exports, TradingView downloads and generic dumps. The parser sniffs the delimiter, column order and date format; bars whose high/low do not contain their open/close are rejected rather than repaired, and duplicate timestamps are dropped.
+
+When a file yields nothing, the error says what the file looked like instead of blaming a row — the common failure is not a malformed price file but a file that was never price data:
+
+```
+  This file does not look like OHLC price data. No column named time, open,
+  high, low or close was found — the first line reads "OFFICE ATTENDANCE -
+  JUNE 2026,,,,," which parses as 6 columns: Date, Day, Time In, Time Out…
+```
 
 **Live fetch** from Binance (crypto, keyless) or Yahoo Finance (FX, indices, equities, keyless). Neither sends CORS headers, so browser fetches go through a small local proxy:
 
@@ -170,9 +187,9 @@ src/strategies/   the rule parser, form builder, preset strategies
 src/optimize/     parameter sweep with in-sample / out-of-sample split
 src/export/       TradingView Pine v5 generator
 src/ui/           React app; backtests run in a Web Worker
-src/cli/          terminal runner and sweep runner
+src/cli/          data downloader, backtest runner, sweep runner
 server/proxy.ts   dev-only CORS proxy for the data providers
-tests/            265 tests
+tests/            274 tests
 ```
 
 ---

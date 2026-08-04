@@ -11,7 +11,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { parseCsv } from "../data/csv";
+import { describeParseFailure, parseCsv } from "../data/csv";
 import { getInstrument } from "../data/instruments";
 import { generateBars } from "../data/synthetic";
 import { runBacktest, type BacktestConfig } from "../engine/backtest";
@@ -202,8 +202,7 @@ function loadBars(options: Options): Bar[] {
     const text = readFileSync(resolve(options.csv), "utf8");
     const parsed = parseCsv(text);
     if (parsed.bars.length === 0) {
-      const reason = parsed.errors[0]?.reason ?? "no usable rows";
-      throw new Error(`Could not read any bars from ${options.csv}: ${reason}`);
+      throw new Error(describeParseFailure(parsed, options.csv));
     }
     if (parsed.rejected > 0) {
       process.stderr.write(`  note: skipped ${parsed.rejected} unusable rows in ${options.csv}\n`);
@@ -252,8 +251,18 @@ function main(): void {
     process.exit(1);
   }
 
-  const strategy = loadStrategy(options.strategy);
-  const data = loadBars(options);
+  // Bad strategy files and unreadable data are user errors; show the message
+  // on its own rather than burying it in a stack trace.
+  let strategy: Strategy;
+  let data: Bar[];
+  try {
+    strategy = loadStrategy(options.strategy);
+    data = loadBars(options);
+  } catch (error) {
+    process.stderr.write(`\n${(error as Error).message}\n\n`);
+    process.exit(1);
+  }
+
   const config: BacktestConfig = {
     instrument: getInstrument(options.symbol),
     costs: {

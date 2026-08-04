@@ -42,9 +42,22 @@ export const yahooSource: MarketDataSource = {
 
     const response = await fetchImpl(
       `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=${interval}&range=${range}`,
+      {
+        // Yahoo rejects requests without a browser-shaped User-Agent, and the
+        // 403 it returns looks identical to a bad ticker.
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+          Accept: "application/json",
+        },
+      },
     );
     if (!response.ok) {
-      throw new Error(`Yahoo returned ${response.status} for ${request.symbol} — check the ticker`);
+      const hint =
+        response.status === 403 || response.status === 429
+          ? " — Yahoo is rate-limiting or blocking this request; wait a minute and retry"
+          : " — check the ticker";
+      throw new Error(`Yahoo returned ${response.status} for ${request.symbol}${hint}`);
     }
 
     const payload = (await response.json()) as YahooResponse;

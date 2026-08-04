@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A backtesting engine for trading strategies — define rules as data, run them over historical bars, get honest numbers.",
+  "description": "A backtesting engine for trading strategies \u2014 define rules as data, run them over historical bars, get honest numbers.",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "backtest": "tsx src/cli/run.ts",
     "proxy": "tsx server/proxy.ts",
-    "sweep": "tsx src/cli/sweep.ts"
+    "sweep": "tsx src/cli/sweep.ts",
+    "fetch": "tsx src/cli/fetch.ts"
   },
   "dependencies": {
     "react": "^19.2.1",

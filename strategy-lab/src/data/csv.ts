@@ -9,12 +9,26 @@
 
 import type { Bar } from "../engine/types";
 
+export interface ParseError {
+  line: number;
+  reason: string;
+  /** The offending row, truncated — seeing it is usually the whole diagnosis. */
+  content?: string;
+}
+
 export interface ParseResult {
   bars: Bar[];
   /** Rows that could not be parsed, with the reason. Capped to keep the UI usable. */
-  errors: { line: number; reason: string }[];
+  errors: ParseError[];
   /** Total rows rejected, including any beyond the reported `errors`. */
   rejected: number;
+  /**
+   * Set when nothing parsed, explaining what the file looked like instead.
+   * "Non-numeric OHLC value" on its own sends people hunting through their data
+   * for a bad row when the real answer is often that the file is not price data
+   * at all.
+   */
+  diagnosis?: string;
 }
 
 const COLUMN_ALIASES: Record<string, string[]> = {
@@ -43,7 +57,7 @@ export function parseCsv(text: string, maxReportedErrors = 20): ParseResult {
   const columns = mapping ?? defaultColumnOrder(splitRow(lines[0], delimiter).length);
 
   const bars: Bar[] = [];
-  const errors: { line: number; reason: string }[] = [];
+  const errors: ParseError[] = [];
   let rejected = 0;
 
   for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
@@ -52,7 +66,9 @@ export function parseCsv(text: string, maxReportedErrors = 20): ParseResult {
 
     if (typeof bar === "string") {
       rejected++;
-      if (errors.length < maxReportedErrors) errors.push({ line: i + 1, reason: bar });
+      if (errors.length < maxReportedErrors) {
+        errors.push({ line: i + 1, reason: bar, content: truncate(lines[i], 120) });
+      }
       continue;
     }
     bars.push(bar);
@@ -70,7 +86,33 @@ export function parseCsv(text: string, maxReportedErrors = 20): ParseResult {
     deduped.push(bar);
   }
 
-  return { bars: deduped, errors, rejected };
+  return { bars: deduped, errors, rejected, diagnosis: diagnose(deduped, lines, firstRow, hasHeader) };
+}
+
+/**
+ * Explains an empty result in terms of what the file actually contains.
+ *
+ * The common failure is not a malformed price file — it is a file that was
+ * never price data to begin with, and naming the columns it does have makes
+ * that obvious at a glance.
+ */
+function diagnose(bars: Bar[], lines: string[], firstRow: string[], hasHeader: boolean): string | undefined {
+  if (bars.length > 0) return undefined;
+
+  if (hasHeader) {
+    return `Found OHLC column names but no row parsed cleanly. First data row: "${truncate(lines[1] ?? "", 120)}"`;
+  }
+
+  return (
+    `This file does not look like OHLC price data. No column named time, open, high, low or close was found — ` +
+    `the first line reads "${truncate(lines[0] ?? "", 120)}"` +
+    (firstRow.length > 1 ? `, which parses as ${firstRow.length} columns: ${firstRow.slice(0, 8).join(", ")}` : "") +
+    ". A usable file needs a header naming those columns, or the values in time,open,high,low,close order."
+  );
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
 interface ColumnMap {
@@ -201,6 +243,31 @@ export function parseTimestamp(raw: string): number | null {
   // Date-only ISO parses as UTC midnight per spec, which is what we want.
   const parsed = Date.parse(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Builds the message shown when a file yields no bars: what the parser saw,
+ * the first few offending rows verbatim, and the command that downloads real
+ * data instead.
+ */
+export function describeParseFailure(result: ParseResult, path: string): string {
+  const lines = [`Could not read any price bars from ${path}`, ""];
+
+  if (result.diagnosis) lines.push(`  ${result.diagnosis}`, "");
+
+  if (result.errors.length > 0) {
+    lines.push("  First rows that failed:");
+    for (const error of result.errors.slice(0, 3)) {
+      lines.push(`    line ${error.line}  ${error.reason}`);
+      if (error.content) lines.push(`      ${error.content}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("  To download real data instead:");
+  lines.push('    npm run fetch -- --symbol "XAUUSD=X" --timeframe H1 --out XAUUSD_H1.csv');
+
+  return lines.join("\n");
 }
 
 /** Serialises bars back to CSV, for exporting a cleaned or fetched dataset. */

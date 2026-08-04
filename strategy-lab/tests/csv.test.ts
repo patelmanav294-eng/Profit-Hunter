@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCsv, parseTimestamp, toCsv } from "../src/data/csv";
+import { describeParseFailure, parseCsv, parseTimestamp, toCsv } from "../src/data/csv";
 import { aggregate } from "../src/data/adapters/yahoo";
 import { dropUnclosedBar } from "../src/data/adapters";
 
@@ -113,6 +113,74 @@ describe("parseCsv", () => {
     );
     const reparsed = parseCsv(toCsv(original.bars));
     expect(reparsed.bars).toEqual(original.bars);
+  });
+});
+
+describe("diagnosing a file that is not price data at all", () => {
+  /**
+   * Taken from a real mix-up: a spreadsheet renamed to look like an FX export.
+   * "Non-numeric OHLC value" on its own sent the user hunting for a bad row,
+   * when the answer was that no row was ever price data.
+   */
+  const attendance = [
+    "OFFICE ATTENDANCE - JUNE 2026,,,,,",
+    ",,,,,",
+    "Date,Day,Time In,Time Out,Total Hours,Status",
+    "01-Jun-26,Monday,09:00,17:30,8:30,Complete",
+    "02-Jun-26,Tuesday,09:00,,,In Progress",
+  ].join("\n");
+
+  const result = parseCsv(attendance);
+
+  it("produces no bars", () => {
+    expect(result.bars).toHaveLength(0);
+  });
+
+  it("says the file is not price data rather than blaming one row", () => {
+    expect(result.diagnosis).toBeDefined();
+    expect(result.diagnosis).toMatch(/does not look like OHLC price data/);
+  });
+
+  it("quotes the header it actually found", () => {
+    expect(result.diagnosis).toContain("OFFICE ATTENDANCE");
+  });
+
+  it("names the columns it parsed, so the mismatch is visible", () => {
+    expect(result.diagnosis).toMatch(/parses as 6 columns/);
+  });
+
+  it("attaches the offending row to each error", () => {
+    expect(result.errors[0].content).toContain("OFFICE ATTENDANCE");
+    expect(result.errors[2].content).toContain("Time In");
+  });
+
+  it("builds a failure message that points at the fix", () => {
+    const message = describeParseFailure(result, "./XAUUSD_H1.csv");
+    expect(message).toContain("./XAUUSD_H1.csv");
+    expect(message).toMatch(/does not look like OHLC price data/);
+    expect(message).toContain("npm run fetch");
+  });
+});
+
+describe("diagnosing a file with the right columns but bad values", () => {
+  const result = parseCsv(["time,open,high,low,close", "2024-01-01,abc,def,ghi,jkl"].join("\n"));
+
+  it("distinguishes this from a wholly wrong file", () => {
+    expect(result.bars).toHaveLength(0);
+    expect(result.diagnosis).toMatch(/Found OHLC column names but no row parsed/);
+    expect(result.diagnosis).not.toMatch(/does not look like OHLC price data/);
+  });
+
+  it("shows the first data row verbatim", () => {
+    expect(result.diagnosis).toContain("2024-01-01,abc");
+  });
+});
+
+describe("a healthy file has nothing to diagnose", () => {
+  it("leaves diagnosis unset", () => {
+    const result = parseCsv(["time,open,high,low,close", "2024-01-01,1.1,1.2,1.0,1.15"].join("\n"));
+    expect(result.bars).toHaveLength(1);
+    expect(result.diagnosis).toBeUndefined();
   });
 });
 

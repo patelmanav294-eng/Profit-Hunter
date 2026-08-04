@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { parseCsv } from "../data/csv";
+import { describeParseFailure, parseCsv } from "../data/csv";
 import { getInstrument } from "../data/instruments";
 import { generateBars } from "../data/synthetic";
 import type { BacktestConfig } from "../engine/backtest";
@@ -176,7 +176,7 @@ function loadBars(options: Options): Bar[] {
   if (options.csv) {
     const parsed = parseCsv(readFileSync(resolve(options.csv), "utf8"));
     if (parsed.bars.length === 0) {
-      throw new Error(`No usable bars in ${options.csv}: ${parsed.errors[0]?.reason ?? "unknown"}`);
+      throw new Error(describeParseFailure(parsed, options.csv));
     }
     if (parsed.rejected > 0) {
       process.stderr.write(`  note: skipped ${parsed.rejected} unusable rows\n`);
@@ -211,7 +211,16 @@ function main(): void {
     process.exit(1);
   }
 
-  const bars = loadBars(options);
+  // Data problems are the user's to fix, not a crash — print the explanation
+  // rather than a stack trace through the loader.
+  let bars: Bar[];
+  try {
+    bars = loadBars(options);
+  } catch (error) {
+    process.stderr.write(`\n${(error as Error).message}\n\n`);
+    process.exit(1);
+  }
+
   const config: BacktestConfig = {
     instrument: getInstrument(options.symbol),
     costs: {
