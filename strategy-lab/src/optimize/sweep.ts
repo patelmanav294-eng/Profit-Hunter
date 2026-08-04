@@ -260,6 +260,33 @@ function buildWarnings(input: WarningInput): string[] {
     }
   }
 
+  // Sample size dominates every other caveat here. A 67% win rate over three
+  // trades is two wins; no amount of ranking or splitting rescues that, and it
+  // is the easiest number on the page to misread as a result.
+  if (best?.outOfSample && best.outOfSample.totalTrades < 20) {
+    warnings.push(
+      `The winner made only ${best.outOfSample.totalTrades} out-of-sample trades. Its win rate and expectancy there ` +
+        "describe a handful of outcomes, not a measurable edge — read them as noise until the count is in the hundreds.",
+    );
+  }
+
+  const medianOsTrades = median(qualified.map(row => row.outOfSample!.totalTrades));
+  if (medianOsTrades < 20 && qualified.length > 1) {
+    warnings.push(
+      `The typical combination made ${medianOsTrades} out-of-sample trades. The whole grid is being judged on tiny ` +
+        "samples — use more history, or a faster timeframe, before drawing conclusions from any row.",
+    );
+  }
+
+  if (targetHits.inSample === 0 && qualified.length > 0) {
+    const bestWinRate = Math.max(...qualified.map(row => row.inSample!.winRate));
+    warnings.push(
+      `Nothing reached the ${(targets.minWinRate * 100).toFixed(0)}% win-rate target. The best any combination managed ` +
+        `in-sample was ${(bestWinRate * 100).toFixed(1)}%, and that figure is itself the maximum of ${combinations} ` +
+        "tries, so the honest expectation is lower still.",
+    );
+  }
+
   if (rankCorrelation !== null && Math.abs(rankCorrelation) < 0.2) {
     warnings.push(
       `In-sample and out-of-sample rankings correlate at ${rankCorrelation.toFixed(2)}. Near zero means in-sample ` +
@@ -330,6 +357,12 @@ export function spearman(a: number[], b: number[]): number | null {
 
   if (varianceA === 0 || varianceB === 0) return null;
   return covariance / Math.sqrt(varianceA * varianceB);
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
 }
 
 function rank(values: number[]): number[] {
