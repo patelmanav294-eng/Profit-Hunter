@@ -1,0 +1,32 @@
+{
+  "name": "strategy-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A backtesting engine for trading strategies — define rules as data, run them over historical bars, get honest numbers.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "backtest": "tsx src/cli/run.ts",
+    "proxy": "tsx server/proxy.ts"
+  },
+  "dependencies": {
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "@types/react": "^19.2.1",
+    "@types/react-dom": "^19.2.1",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tsx": "^4.19.1",
+    "typescript": "5.9.3",
+    "vite": "^7.1.7",
+    "vitest": "^2.1.4"
+  }
+}
