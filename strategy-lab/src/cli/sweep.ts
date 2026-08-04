@@ -18,10 +18,11 @@ import type { Metrics } from "../engine/metrics";
 import { strategyToPine } from "../export/pine";
 import { DEFAULT_TARGETS, runSweep, type SweepReport, type SweepRow } from "../optimize/sweep";
 import { formatPercent, formatRatio } from "../report";
-import { buildFromSweepParams, DEFAULT_SWEEP_SPACE } from "../strategies/supertrendEma";
+import { getShape, type StrategyShape } from "../strategies/shapes";
 import type { Bar } from "../engine/types";
 
 interface Options {
+  shape: string;
   csv?: string;
   symbol: string;
   synthetic: boolean;
@@ -44,6 +45,7 @@ interface Options {
 }
 
 const DEFAULTS: Options = {
+  shape: "flip",
   symbol: "EURUSD",
   synthetic: false,
   bars: 8000,
@@ -63,8 +65,11 @@ const DEFAULTS: Options = {
 };
 
 const HELP = `
-Strategy Lab — Supertrend + EMA parameter sweep
+Strategy Lab — parameter sweep
 
+  --shape <name>         Which structural idea to search (default flip):
+                           flip      enter on the Supertrend flip bar
+                           pullback  enter on a dip in Supertrend's direction
   --csv, -c <path>       OHLC file to sweep over
   --symbol <SYMBOL>      Instrument spec (default EURUSD)
   --synthetic            Generate random-walk bars instead of loading a file
@@ -89,8 +94,8 @@ Strategy Lab — Supertrend + EMA parameter sweep
                            npm run backtest -- --strategy <path> --csv <data> --noise 50
   --help, -h             This message
 
-The grid: Supertrend period x multiplier x EMA period x stop ATR multiple.
-Reward-to-risk is held fixed — it is your risk decision, not something to fit.
+Reward-to-risk is held fixed across every grid — it is your risk decision,
+not something to fit.
 `;
 
 function parseArgs(argv: string[]): Options {
@@ -111,6 +116,9 @@ function parseArgs(argv: string[]): Options {
     };
 
     switch (arg) {
+      case "--shape":
+        options.shape = next().toLowerCase();
+        break;
       case "--csv":
       case "-c":
         options.csv = next();
@@ -237,11 +245,21 @@ function main(): void {
     initialBalance: options.balance,
   };
 
+  let shape: StrategyShape;
+  try {
+    shape = getShape(options.shape);
+  } catch (error) {
+    process.stderr.write(`${(error as Error).message}\n`);
+    process.exit(1);
+  }
+
+  const fixed = { rewardRatio: options.reward, riskPercent: options.risk };
+
   let lastPercent = -1;
   const report = runSweep({
     bars,
-    space: DEFAULT_SWEEP_SPACE,
-    build: params => buildFromSweepParams(params, { rewardRatio: options.reward, riskPercent: options.risk }),
+    space: shape.space,
+    build: params => shape.build(params, fixed),
     config,
     inSampleFraction: options.inSample,
     minTrades: options.minTrades,
@@ -256,7 +274,7 @@ function main(): void {
   });
   process.stderr.write("\r                    \r");
 
-  process.stdout.write(formatSweep(report, options, bars));
+  process.stdout.write(formatSweep(report, options, bars, shape));
 
   if (options.saveStrategy) {
     if (!report.best) {
@@ -264,10 +282,7 @@ function main(): void {
       process.exitCode = 1;
       return;
     }
-    const strategy = buildFromSweepParams(report.best.params, {
-      rewardRatio: options.reward,
-      riskPercent: options.risk,
-    });
+    const strategy = shape.build(report.best.params, fixed);
     writeFileSync(resolve(options.saveStrategy), `${JSON.stringify(strategy, null, 2)}\n`, "utf8");
     process.stdout.write(`  Winner saved to ${options.saveStrategy}\n`);
     process.stdout.write(
@@ -281,10 +296,7 @@ function main(): void {
       process.stderr.write("No winner to export.\n");
       process.exit(1);
     }
-    const strategy = buildFromSweepParams(report.best.params, {
-      rewardRatio: options.reward,
-      riskPercent: options.risk,
-    });
+    const strategy = shape.build(report.best.params, fixed);
     const script = strategyToPine(strategy, {
       instrument: config.instrument,
       costs: config.costs,
@@ -300,17 +312,18 @@ function main(): void {
   }
 }
 
-function formatSweep(report: SweepReport, options: Options, bars: Bar[]): string {
+function formatSweep(report: SweepReport, options: Options, bars: Bar[], shape: StrategyShape): string {
   const lines: string[] = [];
   const rule = "─".repeat(96);
 
   lines.push("");
   lines.push(rule);
-  lines.push(`  Supertrend + EMA sweep · ${options.symbol} · ${bars.length.toLocaleString()} bars`);
+  lines.push(`  ${shape.label} · ${options.symbol} · ${bars.length.toLocaleString()} bars`);
   lines.push(
     `  ${report.combinations} combinations · ${report.inSampleBars.toLocaleString()} bars to rank on, ` +
       `${report.outOfSampleBars.toLocaleString()} held back`,
   );
+  lines.push(`  ${shape.premise}`);
   lines.push(rule);
   lines.push("");
 
@@ -325,12 +338,14 @@ function formatSweep(report: SweepReport, options: Options, bars: Bar[]): string
   // in-sample block, 35 for out-of-sample.
   const inSampleHeader = `${"IS trades".padStart(9)}  ${"IS win".padStart(7)}  ${"IS exp".padStart(7)}  `;
   const outSampleHeader = `${"OS trades".padStart(9)}  ${"OS win".padStart(7)}  ${"OS exp".padStart(7)}  ${"OS PF".padStart(6)}`;
+  const paramHeader = shape.columns.map(c => c.label.padEnd(c.width)).join("");
+  const paramWidth = shape.columns.reduce((sum, c) => sum + c.width, 0);
 
-  lines.push(`    ${"ST".padEnd(9)}${"EMA".padEnd(6)}${"Stop".padEnd(6)}│${inSampleHeader}│${outSampleHeader}`);
-  lines.push(`    ${"─".repeat(21)}┼${"─".repeat(29)}┼${"─".repeat(35)}`);
+  lines.push(`    ${paramHeader}│${inSampleHeader}│${outSampleHeader}`);
+  lines.push(`    ${"─".repeat(paramWidth)}┼${"─".repeat(29)}┼${"─".repeat(35)}`);
 
   for (const row of ranked) {
-    lines.push(formatRow(row));
+    lines.push(formatRow(row, shape));
   }
 
   lines.push("");
@@ -362,14 +377,16 @@ function formatSweep(report: SweepReport, options: Options, bars: Bar[]): string
   return `${lines.join("\n")}\n`;
 }
 
-function formatRow(row: SweepRow): string {
-  const p = row.params;
+function formatRow(row: SweepRow, shape: StrategyShape): string {
   const is = row.inSample!;
   const os = row.outOfSample!;
-  const mark = row.meetsTargetsInSample && row.meetsTargetsOutOfSample ? " ★" : "  ";
+  const mark = row.meetsTargetsInSample && row.meetsTargetsOutOfSample ? "★" : " ";
+  const params = shape.columns
+    .map(c => String(row.params[c.key] ?? "—").padEnd(c.width))
+    .join("");
 
   return (
-    `  ${mark}${`${p.stPeriod}/${p.stMultiplier}`.padEnd(9)}${String(p.emaPeriod).padEnd(6)}${String(p.stopAtrMultiple).padEnd(6)}│` +
+    `   ${mark}${params}│` +
     `${String(is.totalTrades).padStart(9)}  ${formatPercent(is.winRate * 100, 1).padStart(7)}  ${expectancy(is).padStart(7)}  │` +
     `${String(os.totalTrades).padStart(9)}  ${formatPercent(os.winRate * 100, 1).padStart(7)}  ${expectancy(os).padStart(7)}  ${formatRatio(os.profitFactor).padStart(6)}`
   );

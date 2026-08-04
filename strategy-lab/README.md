@@ -11,7 +11,7 @@ npm install
 npm run dev                  # the app, at http://localhost:5273
 npm run backtest -- --list   # or from the terminal
 npm run sweep -- --synthetic # search Supertrend + EMA parameters
-npm test                     # 287 tests
+npm test                     # 301 tests
 ```
 
 ---
@@ -103,7 +103,14 @@ npm run sweep -- --csv ./GOLD_H1.csv --symbol XAUUSD --win-rate 60
 npm run sweep -- --synthetic --bars 9000 --pine
 ```
 
-It varies Supertrend period × multiplier × EMA period × stop ATR multiple — 108 combinations by default. Reward-to-risk is deliberately **not** in the grid: that is a risk decision you make, not a number to fit.
+`--shape` picks which structural idea to search, because the numbers inside a shape have repeatedly turned out not to matter:
+
+| Shape | Premise | Grid |
+|---|---|---|
+| `flip` (default) | Enter on the bar Supertrend changes direction, if the EMA agrees | 108 |
+| `pullback` | Use Supertrend only for direction, then buy a dip below a fast EMA — avoiding the flip bar, which arrives after most of the move | 54 |
+
+Reward-to-risk is deliberately **not** in either grid: that is a risk decision you make, not a number to fit.
 
 Four things keep it honest:
 
@@ -189,7 +196,7 @@ src/export/       TradingView Pine v5 generator
 src/ui/           React app; backtests run in a Web Worker
 src/cli/          data downloader, backtest runner, sweep runner
 server/proxy.ts   dev-only CORS proxy for the data providers
-tests/            287 tests
+tests/            301 tests
 ```
 
 ---
