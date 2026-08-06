@@ -1,0 +1,108 @@
+// Profit Hunter — Gold / Silver / UKOil Buy-Sell Signal Indicator
+// Apply to XAUUSD, XAGUSD, and UKOIL (or WTI/USOIL) charts.
+// Signal = EMA trend cross + RSI momentum zone + MACD confirmation + ATR volatility filter (+ optional HTF trend filter).
+//@version=5
+indicator("Profit Hunter - Gold/Silver/Oil Signal", shorttitle="PH Signal", overlay=true, max_labels_count=500)
+
+// ============ INPUTS ============
+grpTrend = "Trend (EMA)"
+emaFastLen = input.int(9, "Fast EMA Length", minval=1, group=grpTrend)
+emaSlowLen = input.int(21, "Slow EMA Length", minval=1, group=grpTrend)
+
+grpMomentum = "Momentum (RSI + MACD)"
+rsiLen = input.int(14, "RSI Length", minval=1, group=grpMomentum)
+rsiBullMin = input.int(45, "RSI Bullish Min", group=grpMomentum)
+rsiBullMax = input.int(75, "RSI Bullish Max (Overbought Cutoff)", group=grpMomentum)
+rsiBearMax = input.int(55, "RSI Bearish Max", group=grpMomentum)
+rsiBearMin = input.int(25, "RSI Bearish Min (Oversold Cutoff)", group=grpMomentum)
+macdFast = input.int(12, "MACD Fast", group=grpMomentum)
+macdSlow = input.int(26, "MACD Slow", group=grpMomentum)
+macdSignalLen = input.int(9, "MACD Signal", group=grpMomentum)
+
+grpVol = "Volatility Filter (ATR)"
+atrLen = input.int(14, "ATR Length", minval=1, group=grpVol)
+atrAvgLen = input.int(50, "ATR Average Length", minval=1, group=grpVol)
+minAtrRatio = input.float(0.8, "Min ATR / ATR-Average Ratio", minval=0.1, step=0.05, group=grpVol, tooltip="Market bahut sust/choppy hone par signals block karta hai")
+
+grpTrendFilter = "Higher Timeframe Trend Filter"
+useHtfFilter = input.bool(true, "HTF Trend Filter On/Off", group=grpTrendFilter)
+htfRes = input.timeframe("240", "Higher Timeframe", group=grpTrendFilter)
+htfEmaLen = input.int(50, "HTF EMA Length", group=grpTrendFilter)
+
+grpDisplay = "Display"
+showTable = input.bool(true, "Show Confluence Score Table", group=grpDisplay)
+showEmas = input.bool(true, "Show EMA Lines", group=grpDisplay)
+
+// ============ CALCULATIONS ============
+emaFast = ta.ema(close, emaFastLen)
+emaSlow = ta.ema(close, emaSlowLen)
+
+rsiVal = ta.rsi(close, rsiLen)
+
+[macdLine, macdSignal, macdHist] = ta.macd(close, macdFast, macdSlow, macdSignalLen)
+
+atrVal = ta.atr(atrLen)
+atrAvg = ta.sma(atrVal, atrAvgLen)
+volatilityOk = atrVal >= atrAvg * minAtrRatio
+
+htfEmaVal = request.security(syminfo.tickerid, htfRes, ta.ema(close, htfEmaLen), lookahead=barmerge.lookahead_off)
+htfTrendUp = close > htfEmaVal
+htfTrendDown = close < htfEmaVal
+
+// ============ CONDITIONS ============
+trendUp = emaFast > emaSlow
+trendDown = emaFast < emaSlow
+
+rsiBull = rsiVal >= rsiBullMin and rsiVal <= rsiBullMax
+rsiBear = rsiVal <= rsiBearMax and rsiVal >= rsiBearMin
+
+macdBull = macdLine > macdSignal
+macdBear = macdLine < macdSignal
+
+htfBullOk = not useHtfFilter or htfTrendUp
+htfBearOk = not useHtfFilter or htfTrendDown
+
+crossUp = ta.crossover(emaFast, emaSlow)
+crossDown = ta.crossunder(emaFast, emaSlow)
+
+buySignal = crossUp and rsiBull and macdBull and volatilityOk and htfBullOk
+sellSignal = crossDown and rsiBear and macdBear and volatilityOk and htfBearOk
+
+// ============ CONFLUENCE SCORE (0-5): higher = cleaner setup, use this to compare Gold vs Silver vs UKOil ============
+bullScore = (trendUp ? 1 : 0) + (rsiBull ? 1 : 0) + (macdBull ? 1 : 0) + (volatilityOk ? 1 : 0) + (htfTrendUp ? 1 : 0)
+bearScore = (trendDown ? 1 : 0) + (rsiBear ? 1 : 0) + (macdBear ? 1 : 0) + (volatilityOk ? 1 : 0) + (htfTrendDown ? 1 : 0)
+
+// ============ PLOTTING ============
+plot(showEmas ? emaFast : na, "Fast EMA", color=color.new(color.yellow, 0), linewidth=1)
+plot(showEmas ? emaSlow : na, "Slow EMA", color=color.new(color.orange, 0), linewidth=2)
+
+plotshape(buySignal, title="Buy Signal", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BUY")
+plotshape(sellSignal, title="Sell Signal", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.small, text="SELL")
+
+bgcolor(buySignal ? color.new(color.lime, 85) : sellSignal ? color.new(color.red, 85) : na)
+
+// ============ CONFLUENCE TABLE (updates on latest bar only) ============
+var table scoreTable = table.new(position.top_right, 2, 6, border_width=1)
+
+if showTable and barstate.islast
+    table.cell(scoreTable, 0, 0, "Symbol", text_color=color.white, bgcolor=color.new(color.gray, 20))
+    table.cell(scoreTable, 1, 0, syminfo.ticker, text_color=color.white, bgcolor=color.new(color.gray, 20))
+
+    table.cell(scoreTable, 0, 1, "Trend", text_color=color.white)
+    table.cell(scoreTable, 1, 1, trendUp ? "UP" : trendDown ? "DOWN" : "FLAT", text_color=trendUp ? color.lime : trendDown ? color.red : color.gray)
+
+    table.cell(scoreTable, 0, 2, "RSI", text_color=color.white)
+    table.cell(scoreTable, 1, 2, str.tostring(rsiVal, "#.##"), text_color=color.white)
+
+    table.cell(scoreTable, 0, 3, "MACD", text_color=color.white)
+    table.cell(scoreTable, 1, 3, macdBull ? "Bullish" : macdBear ? "Bearish" : "Flat", text_color=macdBull ? color.lime : macdBear ? color.red : color.gray)
+
+    table.cell(scoreTable, 0, 4, "Volatility", text_color=color.white)
+    table.cell(scoreTable, 1, 4, volatilityOk ? "OK" : "Low", text_color=volatilityOk ? color.lime : color.orange)
+
+    table.cell(scoreTable, 0, 5, "Score", text_color=color.white, bgcolor=color.new(color.blue, 60))
+    table.cell(scoreTable, 1, 5, trendUp ? str.tostring(bullScore) + "/5 Bull" : trendDown ? str.tostring(bearScore) + "/5 Bear" : "0/5", text_color=color.white, bgcolor=color.new(color.blue, 60))
+
+// ============ ALERTS ============
+alertcondition(buySignal, title="Profit Hunter BUY Signal", message="{{ticker}} par BUY signal bana hai ({{interval}} timeframe) - Profit Hunter Indicator")
+alertcondition(sellSignal, title="Profit Hunter SELL Signal", message="{{ticker}} par SELL signal bana hai ({{interval}} timeframe) - Profit Hunter Indicator")

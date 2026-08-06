@@ -1,0 +1,57 @@
+# Profit Hunter — Gold / Silver / UKOil Signal Indicator
+
+Simple TradingView Pine Script indicator, sirf teen instruments ke liye banaya gaya he:
+**Gold (XAUUSD), Silver (XAGUSD), UKOil / Brent Crude (UKOIL, ya USOIL/WTI agar tumhara broker wahi deta he)**.
+
+Har chart pe alag se lagao — indicator khud symbol detect kar leta hai, koi extra setup nahi chahiye.
+
+## Logic (kyun signal accurate feel hota he)
+
+Signal tabhi fire hota he jab niche wale sab confirm karein (sirf ek indicator pe blind bharosa nahi):
+
+1. **Trend** — Fast EMA (9) ka Slow EMA (21) ke upar/niche cross hona
+2. **Momentum** — RSI ek healthy zone me ho (overbought/oversold extremes avoid)
+3. **MACD** — MACD line signal line ke sath direction confirm kare
+4. **Volatility filter** — ATR check karta he market dead/choppy to nahi he
+5. **Higher Timeframe filter** (optional, default ON) — bigger timeframe (4H) ka trend bhi same direction me ho
+
+Jitne zyada in 5 me se true hote hain, utna clean setup — yahi **Confluence Score (0-5)** top-right table me dikhta he.
+
+## Install kaise kare (TradingView)
+
+1. TradingView chart kholo (Gold/Silver/UKOil me se koi bhi)
+2. Neeche **Pine Editor** tab kholo
+3. Yaha `profit-hunter-gold-silver-oil-signal.pine` file ka pura code copy-paste karo
+4. **Add to Chart** dabao
+5. Same indicator ko baaki do charts (Gold/Silver/UKOil) pe bhi add kar do
+
+## Teeno me compare kaise karo ki "kis me sahi kaam kar raha he"
+
+Har chart ke top-right corner me table dikhega:
+
+| Field | Matlab |
+|---|---|
+| Trend | UP / DOWN / FLAT |
+| RSI | current momentum reading |
+| MACD | Bullish / Bearish / Flat |
+| Volatility | OK (tradeable) ya Low (choppy, avoid) |
+| Score | 0-5, jitna high utna clean setup |
+
+Teeno charts khol ke score compare karo — jis instrument ka score sabse high aur Volatility "OK" ho, wahi abhi sabse "sahi" trade kar raha he.
+
+## Alerts set karna
+
+1. Chart pe right-click → **Add Alert**
+2. Condition me indicator select karo → **"Profit Hunter BUY Signal"** ya **"Profit Hunter SELL Signal"**
+3. Notification method choose karo (app push / SMS / webhook / email)
+4. Har symbol (Gold/Silver/UKOil) ke liye alag alert banao
+
+## Settings tweak karna (optional)
+
+- **Silver** thoda zyada volatile hota he — agar signals kam aa rahe hain to `Min ATR Ratio` thoda kam kar do (jaise 0.6)
+- **UKOil** gaps aur news spikes zyada deta he — `ATR Length` badha ke (jaise 21) noise kam kar sakte ho
+- Agar signals bahut kam aa rahe hain, `HTF Trend Filter` ko OFF kar ke dekho
+
+## Disclaimer
+
+Ye tool sirf decision-support he, guaranteed profit ka promise nahi karta. Risk management (stop loss, position size) khud discipline se follow karo.
