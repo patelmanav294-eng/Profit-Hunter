@@ -135,8 +135,14 @@ def run_backtest(df: pd.DataFrame) -> dict:
     macd_bull = df["macd_line"] > df["macd_signal"]
     macd_bear = df["macd_line"] < df["macd_signal"]
     vol_ok = df["atr"] >= df["atr_avg"] * MIN_ATR_RATIO
-    htf_bull_ok = (~USE_HTF_FILTER) | (df["close"] > df["htf_ema"])
-    htf_bear_ok = (~USE_HTF_FILTER) | (df["close"] < df["htf_ema"])
+    # NOTE: do not write this as (~USE_HTF_FILTER) | series — ~True is -2, which pandas
+    # coerces to True, silently disabling the filter.
+    if USE_HTF_FILTER:
+        htf_bull_ok = df["close"] > df["htf_ema"]
+        htf_bear_ok = df["close"] < df["htf_ema"]
+    else:
+        htf_bull_ok = pd.Series(True, index=df.index)
+        htf_bear_ok = pd.Series(True, index=df.index)
 
     buy_signal = cross_up & rsi_bull & macd_bull & vol_ok & htf_bull_ok
     sell_signal = cross_down & rsi_bear & macd_bear & vol_ok & htf_bear_ok
