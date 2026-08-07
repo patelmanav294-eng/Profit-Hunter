@@ -113,7 +113,19 @@ Inputs `Risk Management` group me: `TP1 R:R`, `TP1 Exit Size (%)`, `TP2 R:R`, `T
 | **1:2.0 (default)** | **35.9%** | **+0.094R (best)** | **+0.009R** |
 | No TP1 / breakeven OFF (single target 1:3) | 29.1% | +0.081R | -0.012R |
 
-Default ab **TP1 = 1:2, TP2 = 1:3, 50% qty, breakeven ON** hai — Gold ke liye ye purane single-target setup se bhi behtar hai (winrate aur expectancy dono), aur UKOil ka drawdown bhi kaafi kam ho gaya (-49R se -22.5R). Silver phir bhi weak rehta he har configuration me.
+## Per-Instrument Recommended Settings
+
+SL/TP1/TP2 ka full grid search kiya (SL: 1.0-2.0x ATR, TP1: 1.0-2.5 R:R, TP2: 2.5-5.0 R:R, ~48 combinations per instrument, min 30 trades wale hi count kiye). Teeno instruments **alag-alag settings pe** best perform karte hain:
+
+| Instrument | Stop Loss = ATR x | TP1 R:R | TP2 R:R | Winrate | Expectancy | Net R | Max DD |
+|---|---|---|---|---|---|---|---|
+| **Gold (XAUUSD)** — default | 1.5 | 2.0 | 5.0 | 36.8% | +0.143R | +37.0R | -15.0R |
+| **Silver (XAGUSD)** | 2.0 | 1.5 | 3.0 | 43.2% | +0.07R | +19.0R | -15.25R |
+| **UKOil (Brent)** | 1.5 | 2.5 | 4.0 | 32.0% | +0.068R | +17.25R | -21.0R |
+
+Script/strategy ka default Gold ki best setting pe rakha hai (kyunki Gold flagship/strongest instrument hai). **Silver ya UKOil chart pe lagate waqt inputs manually upar table ke hisab se change karo** — TradingView har chart ke liye settings alag se save rakhta hai.
+
+**Overfitting warning (zaroor padho):** Ye numbers ~48 combinations me se sabse best nikale gaye hain, sirf ek hi 2024-2026 ke data window par. Jitne zyada combinations test karoge, utna chance hai ki "best" wala sirf is specific history par luck se accha laga ho (curve-fitting), future me wahi na chale. In exact numbers par blindly bharosa mat karo — pehle demo account par forward-test karo, aur agar possible ho to settings ko ek data window (jaise 2024) par choose karke doosre window (2025-26) par alag se verify karo.
 
 ## Settings tweak karna (optional)
 

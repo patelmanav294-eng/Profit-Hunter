@@ -100,7 +100,7 @@ HTF_EMA_LEN = 50
 SL_ATR_MULT = 1.5
 TP1_RR = 2.0           # TP1 = SL distance x this multiple (partial exit target) - sweep showed 1:2 best balance
 TP1_QTY_FRACTION = 0.5  # fraction of position closed at TP1
-TP2_RR = 3.0           # TP2 = SL distance x this multiple (final target for the runner)
+TP2_RR = 5.0           # TP2 = SL distance x this multiple (final target for the runner) - best for Gold per grid search
 MOVE_SL_TO_BREAKEVEN = True  # after TP1 fills, move SL to entry price (cost-to-cost) for the runner
 
 
