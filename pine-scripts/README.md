@@ -3,10 +3,11 @@
 Simple TradingView Pine Script indicator, sirf teen instruments ke liye banaya gaya he:
 **Gold (XAUUSD), Silver (XAGUSD), UKOil / Brent Crude (UKOIL, ya USOIL/WTI agar tumhara broker wahi deta he)**.
 
-Do files hain:
+Teen files hain:
 
 - `profit-hunter-gold-silver-oil-signal.pine` — **Indicator**. Chart pe Buy/Sell signal aur confluence score table dikhata he, alerts ke liye.
 - `profit-hunter-gold-silver-oil-strategy.pine` — **Strategy**. Same logic, lekin TradingView ke built-in Strategy Tester se jud jaata he — isi se tumhe **real historical Win Rate aur R:R** milega (neeche "Winrate aur R:R kaise pata karo" section dekho).
+- `backtest.py` — **Standalone Python backtest**. TradingView khole bina, terminal se hi ye same logic ka backtest chala sakte ho — Gold/Silver/UKOil teeno ke liye ek saath. Yahoo Finance se free historical data khud download karta he.
 
 Har chart pe alag se lagao — indicator khud symbol detect kar leta hai, koi extra setup nahi chahiye.
 
@@ -63,6 +64,19 @@ Indicator khud winrate ya R:R nahi bataata — wo sirf signal dikhata he. Real n
 R:R input `Risk Management` group me hai — **"Stop Loss = ATR x"** aur **"Risk:Reward Ratio"**. Default 1.5x ATR SL, 1:2 R:R rakha he, tum change karke re-test kar sakte ho (Strategy Tester turant naye numbers dikha dega).
 
 **Zaroori baat:** Ye backtest historical data pe he — future performance ki guarantee nahi deta, especially Gold/Silver/Oil me spread aur slippage real trading me zyada bhi ho sakta he (`Commission %` aur `Slippage` inputs ko apne broker ke actual cost se match karo taaki numbers realistic aayein). Teeno instruments (XAUUSD/XAGUSD/UKOIL) pe alag-alag apply karke compare karo ki kaunsa historically better winrate/R:R deta he — lekin final decision lene se pehle forward-test (demo account) pe bhi check karna better hai.
+
+### Terminal se backtest (TradingView khole bina)
+
+```bash
+pip install pandas numpy
+python3 pine-scripts/backtest.py
+```
+
+Ye script Yahoo Finance se free hourly data (~2+ saal) download karke exact wahi confluence logic (EMA cross + RSI + MACD + ATR filter + 4H trend filter, ATR-based SL, configurable R:R) Gold (GC=F), Silver (SI=F), aur Brent Crude (BZ=F futures — UKOil ka closest free proxy) pe backtest karta he, aur end me teeno ka comparison print karta he (sabse best expectancy wala sabse upar).
+
+Settings (EMA/RSI/MACD/ATR/R:R length, values) file ke top me constants ke roop me hain — Pine strategy ke defaults se match karte hain, wahi change karke re-run kar sakte ho.
+
+Limitations: futures data spot/CFD se thoda different ho sakta he (rollover/basis), aur real spread-commission-slippage include nahi hai — sirf directional edge check karne ke liye he, live capital lagane se pehle demo pe verify zaroor karo.
 
 ## Settings tweak karna (optional)
 
