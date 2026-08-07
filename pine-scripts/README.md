@@ -3,6 +3,11 @@
 Simple TradingView Pine Script indicator, sirf teen instruments ke liye banaya gaya he:
 **Gold (XAUUSD), Silver (XAGUSD), UKOil / Brent Crude (UKOIL, ya USOIL/WTI agar tumhara broker wahi deta he)**.
 
+Do files hain:
+
+- `profit-hunter-gold-silver-oil-signal.pine` — **Indicator**. Chart pe Buy/Sell signal aur confluence score table dikhata he, alerts ke liye.
+- `profit-hunter-gold-silver-oil-strategy.pine` — **Strategy**. Same logic, lekin TradingView ke built-in Strategy Tester se jud jaata he — isi se tumhe **real historical Win Rate aur R:R** milega (neeche "Winrate aur R:R kaise pata karo" section dekho).
+
 Har chart pe alag se lagao — indicator khud symbol detect kar leta hai, koi extra setup nahi chahiye.
 
 ## Logic (kyun signal accurate feel hota he)
@@ -45,6 +50,19 @@ Teeno charts khol ke score compare karo — jis instrument ka score sabse high a
 2. Condition me indicator select karo → **"Profit Hunter BUY Signal"** ya **"Profit Hunter SELL Signal"**
 3. Notification method choose karo (app push / SMS / webhook / email)
 4. Har symbol (Gold/Silver/UKOil) ke liye alag alert banao
+
+## Winrate aur R:R kaise pata karo
+
+Indicator khud winrate ya R:R nahi bataata — wo sirf signal dikhata he. Real numbers nikalne ke liye **strategy version** use karo:
+
+1. TradingView Pine Editor me `profit-hunter-gold-silver-oil-strategy.pine` ka code paste karo → **Add to Chart**
+2. Neeche **"Strategy Tester"** tab kholo (Pine Editor ke bagal me)
+3. **Overview** sub-tab me milega: Net Profit, **Profit Factor**, Max Drawdown
+4. **Performance Summary** sub-tab me exact **"Percent Profitable" (= Win Rate)** milega, Avg Win/Avg Loss se **actual R:R** bhi verify kar sakte ho
+
+R:R input `Risk Management` group me hai — **"Stop Loss = ATR x"** aur **"Risk:Reward Ratio"**. Default 1.5x ATR SL, 1:2 R:R rakha he, tum change karke re-test kar sakte ho (Strategy Tester turant naye numbers dikha dega).
+
+**Zaroori baat:** Ye backtest historical data pe he — future performance ki guarantee nahi deta, especially Gold/Silver/Oil me spread aur slippage real trading me zyada bhi ho sakta he (`Commission %` aur `Slippage` inputs ko apne broker ke actual cost se match karo taaki numbers realistic aayein). Teeno instruments (XAUUSD/XAGUSD/UKOIL) pe alag-alag apply karke compare karo ki kaunsa historically better winrate/R:R deta he — lekin final decision lene se pehle forward-test (demo account) pe bhi check karna better hai.
 
 ## Settings tweak karna (optional)
 
