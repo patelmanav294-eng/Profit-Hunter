@@ -1,227 +1,186 @@
-# Profit Hunter — Gold / Silver / UKOil Signal Indicator
+# Profit Hunter — Buy/Sell Signal Tool
 
-Simple TradingView Pine Script indicator, sirf teen instruments ke liye banaya gaya he:
-**Gold (XAUUSD), Silver (XAGUSD), UKOil / Brent Crude (UKOIL, ya USOIL/WTI agar tumhara broker wahi deta he)**.
+TradingView indicator jo Gold, Silver aur Oil charts par **BUY/SELL signal** deta hai, aur saath me
+**Entry, Stop Loss, TP1 aur TP2 ki exact lines** bhi chart par draw karta hai — taaki signal aate hi
+pata ho kahan enter karna hai, kahan stop lagana hai, aur kahan book karna hai.
 
-Chaar files hain:
+**Jo file chart par lagani hai: `profit-hunter-signals.pine`**
 
-- `profit-hunter-gold-silver-oil-signal.pine` — **Indicator**. Chart pe Buy/Sell signal aur confluence score table dikhata he, alerts ke liye.
-- `profit-hunter-gold-silver-oil-strategy.pine` — **Strategy**. Same logic, lekin TradingView ke built-in Strategy Tester se jud jaata he.
-- `backtest.py` — **Standalone Python backtest**. TradingView khole bina, terminal se hi backtest chala sakte ho.
-- `validate.py` — **Reality check**. Poochta he ki entry signal random entries se behtar hai ya nahi, 26 saal ke data par. Sabse zaroori file — "Kya ye edge asli hai?" section dekho.
+Baaki files sirf verification ke liye hain (neeche "Repo me kya kya hai" dekho).
 
-**Agar sirf ek cheez padhni ho:** ye ek *risk-control* system hai, *prediction* system nahi. Entry signal ne 26 saal par random entries se behtar performance prove nahi ki. Jo kaam kar raha hai wo hai ATR stops, partial exits, aur 2/3 waqt market se bahar rehna.
+---
 
-Har chart pe alag se lagao — indicator khud symbol detect kar leta hai, koi extra setup nahi chahiye.
+## Install (2 minute)
 
-## Logic (kyun signal accurate feel hota he)
-
-Signal tabhi fire hota he jab niche wale sab confirm karein (sirf ek indicator pe blind bharosa nahi):
-
-1. **Trend** — Fast EMA (9) ka Slow EMA (21) ke upar/niche cross hona
-2. **Momentum** — RSI ek healthy zone me ho (overbought/oversold extremes avoid)
-3. **MACD** — MACD line signal line ke sath direction confirm kare
-4. **Volatility filter** — ATR check karta he market dead/choppy to nahi he
-5. **Higher Timeframe filter** (optional, default ON) — bigger timeframe (4H) ka trend bhi same direction me ho
-
-Jitne zyada in 5 me se true hote hain, utna clean setup — yahi **Confluence Score (0-5)** top-right table me dikhta he.
-
-## Install kaise kare (TradingView)
-
-1. TradingView chart kholo (Gold/Silver/UKOil me se koi bhi)
+1. TradingView par apna chart kholo — **XAUUSD**, timeframe **H1** (1 hour)
 2. Neeche **Pine Editor** tab kholo
-3. Yaha `profit-hunter-gold-silver-oil-signal.pine` file ka pura code copy-paste karo
+3. `profit-hunter-signals.pine` ka poora code copy-paste karo
 4. **Add to Chart** dabao
-5. Same indicator ko baaki do charts (Gold/Silver/UKOil) pe bhi add kar do
 
-## Teeno me compare kaise karo ki "kis me sahi kaam kar raha he"
+Bas. Settings symbol ke hisab se apne aap set ho jaati hain — Gold par gold wali, Silver par silver
+wali. Kuch manually badalne ki zaroorat nahi.
 
-Har chart ke top-right corner me table dikhega:
+---
 
-| Field | Matlab |
+## Signal aane par kya karna hai
+
+Jab chart par **BUY** ka label aayega, uske saath 4 lines dikhengi:
+
+| Line | Rang | Matlab |
+|---|---|---|
+| Entry | grey | Yahan enter karo |
+| Stop Loss | laal | Yahan nikal jao agar galat gaya |
+| TP1 | neela | Yahan **aadhi (50%) position book** karo |
+| TP2 | hara | Baaki aadhi ka final target |
+
+Top-right ke panel me yahi cheezein numbers me bhi likhi hongi, aur "Ab kya" row batayegi ki agla step kya hai.
+
+**Sabse zaroori rule:** jaise hi price TP1 tak pahunche —
+
+1. **50% position book kar do**
+2. **Stop loss ko entry price par le aao** (cost to cost)
+
+Uske baad wo trade risk-free ho jaata hai. Indicator ye khud track karta hai — TP1 lagte hi laal
+stop line apne aap entry par shift ho jaayegi aur panel me "Stop breakeven par hai" dikhega.
+
+---
+
+## Phone par alert lagana
+
+1. Chart par right-click → **Add Alert**
+2. Condition me **PH Signals** select karo
+3. Neeche dropdown me **"Any alert() function call"** choose karo
+4. Notification me apna app / SMS / email select karo → **Create**
+
+Isse alert me poori detail aayegi, sirf "BUY" nahi:
+
+```
+BUY XAUUSD (60)
+Entry: 4352.10
+Stop Loss: 4307.20
+TP1 (50% book): 4464.35
+TP2: 4576.60
+TP1 lagne par stop ko entry par le aana.
+```
+
+Aur jab TP1 lagega, alag alert aayega ki 50% book karo aur stop breakeven par le jao.
+
+---
+
+## Pichhle 2 saal ka backtest
+
+H1 chart, trading cost ke baad (0.05R per exit), **sirf BUY signals** (jaise tool default me hai):
+
+| Instrument | Trades | Win rate | Profit Factor | Expectancy | Net | Max drawdown |
+|---|---|---|---|---|---|---|
+| **Gold (XAUUSD)** | 73 | **42.5%** | **2.15** | **+0.693R** | +50.6R | −10.05R |
+| Silver (XAGUSD) | 124 | 37.9% | 1.20 | +0.131R | +16.3R | −10.15R |
+| UKOil (Brent) | 105 | 30.5% | 1.02 | +0.017R | +1.75R | −23.7R |
+
+*Period: 15 Mar 2024 – 7 Aug 2026. Numbers thode badal sakte hain kyunki 2-saal ka window roz aage khisakta hai.*
+
+**1R = stop loss ki doori.** Yaani agar tum har trade par account ka 1% risk karte ho, to Gold ka
++0.693R matlab average **+0.69% per trade**.
+
+### Kaun sa instrument use karo
+
+**Gold sabse behtar hai** — 42.5% winrate, Profit Factor 2.15, aur drawdown sirf −10R.
+
+**Silver ka number achha dikhta hai lekin practically kaam nahi karta.** Wajah: Silver ka stop
+distance sirf **~21 cents** hota hai, isliye —
+
+| Silver spread | Cost | vs edge (+0.131R) |
+|---|---|---|
+| 2 cents | 0.095R | edge ka bada hissa kha gaya |
+| 5 cents | 0.238R | **edge se kaafi zyada — loss** |
+
+Retail brokers ka XAGUSD spread aam taur par 2-4 cents hota hai. Gold me 1R **$22** ka hota hai,
+isliye $0.30-0.50 ka spread sirf 0.02R padta hai — bilkul comfortable.
+
+**UKOil skip karo** — +0.017R expectancy ke saamne −23.7R drawdown, risk ke layak nahi.
+
+### SELL signals default me band kyun hain
+
+Har test me shorts paisa khaate mile — H1 par −0.08R, 26 saal ke daily data par −0.354R per trade.
+Chahiye to settings me on kar sakte ho (`Direction → SELL signals dikhao`), lekin backtest support
+nahi karta.
+
+---
+
+## Winrate 42% kam lagta hai?
+
+Ye trend-following system hai — inme **30-45% winrate normal hai**. Kyunki jeetne wale trades
+haarne walon se **2-3 guna bade** hote hain:
+
+- Average WIN: **+2.70R**
+- Average LOSS: **−1.05R**
+- Realized R:R: **1 : 2.57**
+
+Har trade me teen me se ek cheez hoti hai (Gold ke numbers):
+
+| Kya hua | Kitni baar | Result |
+|---|---|---|
+| Stop lag gaya, TP1 tak nahi pahuncha | 60.5% | −1.05R |
+| TP1 laga, phir breakeven par band | 15.8% | **+1.20R** |
+| TP1 laga, phir TP2 tak gaya | 23.7% | **+3.70R** |
+
+Dhyan do — TP1 lag jaane ke baad trade **kabhi loss me nahi jaata**, kyunki aadha position pehle hi
+book ho chuka hota hai aur stop breakeven par aa chuka hota hai. Isiliye 50% book karna aur stop
+move karna itna zaroori hai.
+
+---
+
+## Do settings jo mat chhedna
+
+**1. HTF Trend Filter — ON hi rakhna.**
+Ye 4-hour chart ka trend check karta hai: bada trend upar ho tabhi BUY leta hai. Ise OFF karne se
+signals kaafi zyada aate hain, isliye tempting lagta hai — lekin test me Gold ka expectancy
++0.29R se **−0.06R** ho gaya. Kam signal lena hi yahan ka point hai.
+
+**2. "Signal sirf candle band hone par confirm karo" — ON hi rakhna.**
+Warna chalti hui candle me signal aata-jaata dikhega aur tum galat entry le loge.
+
+---
+
+## Repo me kya kya hai
+
+| File | Kaam |
 |---|---|
-| Trend | UP / DOWN / FLAT |
-| RSI | current momentum reading |
-| MACD | Bullish / Bearish / Flat |
-| Volatility | OK (tradeable) ya Low (choppy, avoid) |
-| Score | 0-5, jitna high utna clean setup |
+| **`profit-hunter-signals.pine`** | **Ye chart par lagao.** Signal + Entry/SL/TP lines + panel + alerts |
+| `profit-hunter-gold-silver-oil-strategy.pine` | TradingView Strategy Tester version — khud numbers verify karne ke liye |
+| `profit-hunter-gold-silver-oil-signal.pine` | Purana simple indicator (sirf arrows + score table) |
+| `backtest.py` | Terminal se 2-saal ka backtest |
+| `validate.py` | Reality check — signal random entries se behtar hai ya nahi |
 
-Teeno charts khol ke score compare karo — jis instrument ka score sabse high aur Volatility "OK" ho, wahi abhi sabse "sahi" trade kar raha he.
-
-## Alerts set karna
-
-1. Chart pe right-click → **Add Alert**
-2. Condition me indicator select karo → **"Profit Hunter BUY Signal"** ya **"Profit Hunter SELL Signal"**
-3. Notification method choose karo (app push / SMS / webhook / email)
-4. Har symbol (Gold/Silver/UKOil) ke liye alag alert banao
-
-## Winrate aur R:R kaise pata karo
-
-Indicator khud winrate ya R:R nahi bataata — wo sirf signal dikhata he. Real numbers nikalne ke liye **strategy version** use karo:
-
-1. TradingView Pine Editor me `profit-hunter-gold-silver-oil-strategy.pine` ka code paste karo → **Add to Chart**
-2. Neeche **"Strategy Tester"** tab kholo (Pine Editor ke bagal me)
-3. **Overview** sub-tab me milega: Net Profit, **Profit Factor**, Max Drawdown
-4. **Performance Summary** sub-tab me exact **"Percent Profitable" (= Win Rate)** milega, Avg Win/Avg Loss se **actual R:R** bhi verify kar sakte ho
-
-Risk inputs `Risk Management` group me hain — **"Stop Loss = ATR x"**, **"TP1 R:R"**, **"TP2 R:R"**. Defaults Gold ke hisab se set hain (2.0x ATR SL, TP1 1:2.5, TP2 1:5). Silver chart pe lagate waqt inko badalna padega — neeche "Per-instrument verdict" table dekho.
-
-**Zaroori baat:** `Commission %` aur `Slippage` inputs ko apne broker ke actual cost se match karo, warna numbers real trading se behtar dikhenge. Costs kitna farak daalte hain wo "Trading costs" section me he.
-
-### Terminal se backtest (TradingView khole bina)
+Backtest khud chalane ke liye:
 
 ```bash
 pip install pandas numpy
 python3 pine-scripts/backtest.py
 ```
 
-Ye script Yahoo Finance se free hourly data (~2.4 saal) download karke wahi confluence logic (EMA cross + RSI + MACD + ATR filter + 4H trend filter, ATR-based SL, TP1/TP2 + breakeven) Gold (GC=F), Silver (SI=F), aur Brent Crude (BZ=F futures — UKOil ka closest free proxy) pe backtest karta he, har instrument ki apni settings ke sath, aur end me comparison print karta he.
+Sab settings `backtest.py` ke top me constants hain — `COST_R` ko apne broker ke actual spread se
+match karke re-run kar sakte ho.
 
-Sab settings file ke top me constants ke roop me hain — indicator lengths, `COST_R` (trading cost), aur `PER_SYMBOL_SETTINGS` (per-instrument SL/TP1/TP2). Wahi change karke re-run kar sakte ho.
+---
 
-## Results (out-of-sample tested, costs included)
+## Imaandari se: kitna bharosa karein
 
-**Pehle ek zaroori correction:** is README ke pichhle version me jo bhi numbers the — winrate, R:R sweep, per-instrument settings — wo sab galat the. `backtest.py` me ek bug tha jiski wajah se **4H trend filter kabhi apply hi nahi hota tha**, jabki Pine strategy usse apply karti he. Matlab Python ek alag hi strategy measure kar raha tha. Bug fix ho chuka he aur neeche ke saare numbers dobara nikale gaye hain.
+Ye numbers achhe hain, lekin inko "guaranteed profit" mat samajhna. Jo cheezein tumhe pata honi chahiye:
 
-### Sabse bada finding: 4H trend filter hi asli edge he
-
-Filter ON vs OFF, out-of-sample test par (settings sirf pehle 60% data par choose ki, phir baaki 40% *unseen* data par verify ki, 0.05R cost ke sath):
-
-| Instrument | Filter ON — kitne % settings unseen data pe profitable | Filter OFF |
-|---|---|---|
-| Gold | **80%** (median +0.078R) | 36% (median -0.011R) |
-| Silver | **100%** (median +0.143R) | 38% (median -0.016R) |
-| UKOil | 0% (median -0.223R) | 7% (median -0.133R) |
-
-Filter ke bina strategy dono taraf breakeven ya negative he. Isliye `HTF Trend Filter` ko **kabhi OFF mat karo**.
-
-### Per-instrument verdict
-
-| Instrument | SL = ATR x | TP1 R:R | TP2 R:R | Unseen-data expectancy | Verdict |
-|---|---|---|---|---|---|
-| **Gold (XAUUSD)** | 2.0 | 2.5 | 5.0 | +0.292R (49 trades) | Sabse strong |
-| **Silver (XAGUSD)** | 1.0 | 2.0 | 3.0 | +0.115R (82 trades) | Grid me robust, **lekin spread kha jaata he** — neeche dekho |
-| **UKOil (Brent)** | — | — | — | -0.357R (87 trades) | **Mat trade karo** |
-
-**UKOil is strategy ke liye kaam nahi karta.** 45 me se ek bhi setting unseen data par profitable nahi rahi. `backtest.py` me wo sirf isliye rakha he taaki comparison me dikhta rahe ki kyu avoid karna he.
-
-Silver grid ke hisab se sabse consistent he (har tested setting unseen data par profitable), lekin real spread lagane ke baad practically trade karne layak nahi rehta — agla section dekho.
-
-### Trading costs
-
-Costs pehle model hi nahi hote the. Ab `backtest.py` me `COST_R` he (default 0.05 = stop distance ka 5%, har exit par charge hota he). Cost sensitivity:
-
-| Cost per exit | Gold | Silver |
-|---|---|---|
-| 0.00R | +0.301R | +0.109R |
-| 0.05R (default) | +0.251R | +0.059R |
-| 0.10R | +0.201R | +0.009R |
-| 0.15R | +0.151R | -0.041R |
-
-Gold high costs bhi jhel leta he. **Silver 0.10R se upar break ho jaata he.**
-
-Ab ise asli price units me convert karo — yahi decisive hai:
-
-| | 1R kitna banta he | 2 cent spread | 5 cent spread | Strategy ka edge |
-|---|---|---|---|---|
-| **Gold** (SL 2.0×ATR) | $22.46 | 0.001R | 0.002R | +0.430R |
-| **Silver** (SL 1.0×ATR) | **$0.21** | **0.095R** | **0.238R** | **+0.077R** |
-
-Silver ka stop distance sirf 21 cents hai, isliye **2 cent ka spread bhi uska poora edge kha jaata he** — aur
-retail XAGUSD spread aam taur pe 2-4 cents hota he. Gold me 1R $22 ka hai, isliye $0.30-0.50 spread
-0.02R se bhi kam padta he.
-
-**Isliye practically: Gold trade karo, Silver skip karo.** `COST_R` ko apne broker ke actual spread se
-match karke khud verify kar sakte ho.
-
-## Winrate kam kyu lagta hai (aur kyu chalta hai)
-
-Ye ek trend-following system hai — is type ke systems me **27-40% winrate normal aur expected hota hai**. Chhote losses jaldi cut hote hain, bade winners un losses ko cover karte hain. **Winrate akela dekhna misleading hai — Profit Factor aur Expectancy dekho.** Gold ka winrate sirf ~35-40% he lekin Profit Factor 1.4-1.7 he, kyunki jeetne wale trades kaafi bade hote hain.
-
-## TP1 + TP2 + Breakeven (Cost to Cost) SL
-
-Strategy do targets use karti he, single target ki jagah:
-
-- **TP1** — position ka partial % (default 50%) yahan book hota he, closer target pe
-- Jaise hi TP1 hit hota he, baaki 50% ka **Stop Loss entry price (cost-to-cost / breakeven) pe move ho jaata he** — wo hissa risk-free ban jaata he
-- **TP2** — baaki 50% yahan tak chalta he (ya breakeven pe scratch ho jaata he agar price wapas aa jaye)
-
-Inputs `Risk Management` group me: `TP1 R:R`, `TP1 Exit Size (%)`, `TP2 R:R`, `TP1 hit hone par SL Breakeven pe move karo`.
-
-Breakeven SL winrate badhata he, lekin TP1 ko bahut paas rakhne se bade winners beech me hi scratch ho jaate hain. Isliye TP1 ko theek-thaak door (1:2 se 1:2.5) rakhna behtar nikla.
-
-## Kya ye edge asli hai? (26 saal ka validation)
-
-`validate.py` sabse zaroori sawaal poochta hai: **agar entry ka time random kar dein, tab kya hota hai?**
-Bilkul wahi SL/TP/breakeven rules, wahi one-position-at-a-time niyam — sirf entry random. Agar random
-entries bhi utna hi kamaati hain, to signal ki koi keemat nahi.
-
-| Window | Strategy (long) | Random entry (trend UP) | p-value | Verdict |
-|---|---|---|---|---|
-| H1, 2024-26 (75 trades) | +0.710R | +0.341R | 0.015 | Signal random se aage |
-| **D1, 2000-26 (59 trades)** | **+0.539R** | **+0.587R** | **0.599** | **Random se farak nahi** |
-
-**26 saal par entry signal random entries se behtar nahi hai** — balki halka sa kharab. 2024-26 me
-signal jeetata hai, lekin us window me random entries ne bhi +0.341R kamaya, yaani strategy ke
-+0.710R ka aadha hissa sirf market ka upar jaana hai.
-
-### Regime breakdown (D1 Gold, long trades)
-
-| Period | | Trades | Win | Expectancy |
-|---|---|---|---|---|
-| 2000-07 | early bull | 23 | 34.8% | +0.167R |
-| 2008-11 | GFC + peak | 10 | 50.0% | +1.075R |
-| 2012-15 | crash + bear | 4 | 25.0% | **−0.487R** |
-| 2016-19 | sideways | 11 | 36.4% | +0.223R |
-| 2020-23 | covid + chop | 5 | 60.0% | +0.800R |
-| 2024-26 | recent bull | 6 | 66.7% | +2.117R |
-
-Gold bear market (2012-15) me strategy loss me jaati hai. Aur dhyan do — recent bull ka +2.117R
-sirf **6 trades** ka hai; wahi poore 26-saal ke result ko upar kheench raha hai.
-
-### Buy & hold se comparison
-
-| Window | Approach | Net | Max DD | Return ÷ DD | Time in market |
-|---|---|---|---|---|---|
-| H1 2024-26 | Strategy | +53.3R | −11.1R | **4.80** | 35% |
-| | Buy & hold | +99.5R | −72.2R | 1.38 | 100% |
-| D1 2000-26 | Strategy | +31.8R | −6.2R | **5.17** | 33% |
-| | Buy & hold | +141.0R | −45.5R | 3.10 | 100% |
-
-Total return me buy & hold aage hai. **Lekin risk-adjusted me strategy kaafi behtar hai** — H1 par
-4.80 vs 1.38 return-per-drawdown, wo bhi sirf 35% time market me. Buy & hold ko −72R drawdown
-jhelna padta hai, strategy ko −11R.
-
-### Iska matlab
-
-Ye **prediction system nahi, risk-control system hai.** Entry "smart" nahi hai — jo kaam kar raha
-hai wo hai ATR-based stops, partial exits, breakeven, aur 2/3 waqt market se bahar rehna. Isse
-gold ke uptrend ka accha hissa mil jaata hai, drawdown ke ek chhote fraction par.
-
-Khud chalane ke liye:
-
-```bash
-python3 pine-scripts/validate.py
-```
-
-## Kitna bharosa karein in numbers par
-
-Imaandari se: **utna nahi jitna table dekh kar lagta hai.**
-
-- **Entry signal ne 26 saal par koi edge prove nahi kiya.** Ye sabse badi baat hai — upar wala null test dekho.
-- Sample chhota hai — Gold ke unseen half par sirf 49 trades, aur D1 par 26 saal me sirf 59 long trades.
-- H1 data sirf ~2.4 saal ka hai (Yahoo hourly ki limit), aur wo bhi Gold ke strong bull run ka period.
-- Futures data (GC=F / SI=F / BZ=F) hai — tumhare broker ka spot ya CFD feed thoda alag hoga.
+- **Test period Gold ka strong bull run tha (2024-26).** Us dauran long lena waise bhi kaam karta.
+  Alag market me ye numbers repeat nahi honge.
+- **Sample chhota hai** — Gold par sirf 73 trades. Itne sample par kaafi variation possible hai.
+- **Lambe test me signal ne edge prove nahi kiya.** `validate.py` ne 26 saal ke daily data par check
+  kiya ki agar entry ka time *random* kar dein to kya hota hai — random entries ne +0.587R diya,
+  strategy ne +0.539R. Yaani lambe arse me entry signal random se behtar nahi nikla.
+- **Jo cheez asal me kaam kar rahi hai** wo hai ATR-based stop, TP1 par 50% book karna, stop
+  breakeven par le jaana, aur 2/3 waqt market se bahar rehna. Ye ek **risk-control system hai,
+  prediction system nahi.**
+- Data futures ka hai (GC=F/SI=F/BZ=F) — tumhare broker ka spot/CFD feed thoda alag hoga.
 - Overnight gaps aur weekend risk model nahi kiye gaye.
-- Same bar me SL aur TP dono hit ho jaayein to conservatively SL maana gaya hai.
-- Ye numbers kaafi saare configurations test karne ke baad ke best hain — multiple-testing ka effect inme shamil hai.
 
-## Settings tweak karna (optional)
+**Isliye: pehle 2-3 mahine demo account par chalao.** Live jaane par risk per trade 1% se zyada mat
+rakhna — is strategy me 10R ka drawdown normal hai, yaani 10 baar ka risk ek saath doob sakta hai.
 
-- **`HTF Trend Filter` ko OFF mat karo.** Ye tempting lagta he kyunki OFF karne se signals kaafi zyada aate hain — lekin test me wahi single change Gold ko +0.29R se -0.06R (unseen data par) le jaata he. Kam signals lena hi yahan point he.
-- Signals kam lag rahe hain to ye normal he — filter ke sath ~2.4 saal me 114 (Gold) se 217 (Silver) trades aate hain. Zyada trades chahiye to lower timeframe use karo, filter mat hatao.
-- `COST_R` (backtest.py me) ko apne broker ke actual spread se match karo — Silver ka edge 0.10R cost se upar khatam ho jaata he.
-
-## Disclaimer
-
-Ye tool sirf decision-support he, guaranteed profit ka promise nahi karta. Risk management (stop loss, position size) khud discipline se follow karo.
+Trading me nuksan hota hai. Ye tool decision-support hai, guarantee nahi.

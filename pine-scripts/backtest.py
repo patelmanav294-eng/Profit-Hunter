@@ -1,7 +1,7 @@
 # Standalone backtest for the Gold/Silver/UKOil confluence strategy
-# (mirrors pine-scripts/profit-hunter-gold-silver-oil-strategy.pine).
-# Downloads hourly data from Yahoo Finance (no API key needed) and reports
-# real Win Rate, Profit Factor, and R:R per instrument.
+# (mirrors profit-hunter-signals.pine / the Pine strategy file).
+# Downloads the last 2 years of hourly data from Yahoo Finance (no API key
+# needed) and reports real Win Rate, Profit Factor, and R:R per instrument.
 # Requires: pandas, numpy  (pip install pandas numpy)
 # Run: python3 pine-scripts/backtest.py
 import json
@@ -30,6 +30,7 @@ PER_SYMBOL_SETTINGS = {
 # ---------------- Data fetch ----------------
 
 def fetch_yahoo(ticker, rng="730d", interval="60m"):
+    """730d = the last 2 years, which is also Yahoo's limit for hourly bars."""
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ticker)}?range={rng}&interval={interval}"
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -115,6 +116,9 @@ MOVE_SL_TO_BREAKEVEN = True  # after TP1 fills, move SL to entry price (cost-to-
 # charged on each exit. Zero costs flatter the results materially - set this to
 # match your own broker rather than leaving the default.
 COST_R = 0.05
+# The signal tool ships with SELL signals off, because shorts lost money on every
+# timeframe tested. Keep this True so the backtest measures what the tool does.
+LONGS_ONLY = True
 
 
 def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
@@ -229,7 +233,7 @@ def run_backtest(df: pd.DataFrame, sl_mult: float | None = None,
                     "direction": "long", "entry_i": i, "entry": row["close"], "tp1_hit": False, "r_total": 0.0,
                     "sl": row["close"] - sl_dist, "tp1": row["close"] + tp1_dist, "tp2": row["close"] + tp2_dist,
                 }
-            elif bool(sell_signal.iloc[i]):
+            elif bool(sell_signal.iloc[i]) and not LONGS_ONLY:
                 position = {
                     "direction": "short", "entry_i": i, "entry": row["close"], "tp1_hit": False, "r_total": 0.0,
                     "sl": row["close"] + sl_dist, "tp1": row["close"] - tp1_dist, "tp2": row["close"] - tp2_dist,
@@ -264,6 +268,7 @@ def run_backtest(df: pd.DataFrame, sl_mult: float | None = None,
         "tp2_rr": tp2_rr,
         "move_sl_to_breakeven": MOVE_SL_TO_BREAKEVEN,
         "cost_r_per_exit": COST_R,
+        "longs_only": LONGS_ONLY,
         "profit_factor": round(profit_factor, 2) if np.isfinite(profit_factor) else None,
         "net_r": round(float(net_r), 2),
         "expectancy_r": round(float(expectancy_r), 3),
