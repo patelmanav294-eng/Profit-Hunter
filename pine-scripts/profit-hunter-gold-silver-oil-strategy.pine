@@ -30,17 +30,18 @@ atrAvgLen = input.int(50, "ATR Average Length", minval=1, group=grpVol)
 minAtrRatio = input.float(0.8, "Min ATR / ATR-Average Ratio", minval=0.1, step=0.05, group=grpVol)
 
 grpTrendFilter = "Higher Timeframe Trend Filter"
-useHtfFilter = input.bool(true, "HTF Trend Filter On/Off", group=grpTrendFilter)
+useHtfFilter = input.bool(true, "HTF Trend Filter On/Off", group=grpTrendFilter,
+     tooltip="ISE OFF MAT KARO. Testing me ye filter is strategy ka sabse bada edge nikla — iske bina Gold ka out-of-sample expectancy +0.29R se -0.06R ho jaata hai. OFF karne se signals zyada aate hain, lekin quality khatam ho jaati hai.")
 htfRes = input.timeframe("240", "Higher Timeframe", group=grpTrendFilter)
 htfEmaLen = input.int(50, "HTF EMA Length", group=grpTrendFilter)
 
 grpRisk = "Risk Management (TP1 partial + TP2 final + Breakeven)"
-slAtrMultiplier = input.float(1.5, "Stop Loss = ATR x", minval=0.1, step=0.1, group=grpRisk)
-tp1RR = input.float(2.0, "TP1 R:R (partial exit)", minval=0.1, step=0.1, group=grpRisk,
-     tooltip="TP1 = Stop-Loss distance x this multiple. Position ka partial % yahan pehla profit book hota hai. Backtest me 1:2 sabse balanced mila (winrate bhi behtar, expectancy bhi).")
+slAtrMultiplier = input.float(2.0, "Stop Loss = ATR x", minval=0.1, step=0.1, group=grpRisk)
+tp1RR = input.float(2.5, "TP1 R:R (partial exit)", minval=0.1, step=0.1, group=grpRisk,
+     tooltip="TP1 = Stop-Loss distance x this multiple. Position ka partial % yahan pehla profit book hota hai. Defaults Gold ke liye tuned hain — Silver ke liye SL 1.0x / TP1 1:2 / TP2 1:3 use karo (README dekho).")
 tp1QtyPercent = input.int(50, "TP1 Exit Size (%)", minval=1, maxval=99, group=grpRisk)
 tp2RR = input.float(5.0, "TP2 R:R (final target)", minval=0.5, step=0.1, group=grpRisk,
-     tooltip="Baaki position yahan tak chalti hai. Grid search me Gold ke liye 1:5 sabse best expectancy deta hai. Silver/UKOil chart pe lagate waqt README ki 'Per-Instrument Recommended Settings' table dekh ke value change karo.")
+     tooltip="Baaki position yahan tak chalti hai. Defaults Gold ke liye hain. Silver: SL 1.0x / TP1 1:2 / TP2 1:3. UKOil par ye strategy out-of-sample test me fail hui — usse avoid karo.")
 moveSlToBreakeven = input.bool(true, "TP1 hit hone par SL Breakeven (Cost to Cost) pe move karo", group=grpRisk)
 allowLongs = input.bool(true, "Allow Long Trades", group=grpRisk)
 allowShorts = input.bool(true, "Allow Short Trades", group=grpRisk)

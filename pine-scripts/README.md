@@ -61,9 +61,9 @@ Indicator khud winrate ya R:R nahi bataata — wo sirf signal dikhata he. Real n
 3. **Overview** sub-tab me milega: Net Profit, **Profit Factor**, Max Drawdown
 4. **Performance Summary** sub-tab me exact **"Percent Profitable" (= Win Rate)** milega, Avg Win/Avg Loss se **actual R:R** bhi verify kar sakte ho
 
-R:R input `Risk Management` group me hai — **"Stop Loss = ATR x"** aur **"Risk:Reward Ratio"**. Default 1.5x ATR SL, 1:2 R:R rakha he, tum change karke re-test kar sakte ho (Strategy Tester turant naye numbers dikha dega).
+Risk inputs `Risk Management` group me hain — **"Stop Loss = ATR x"**, **"TP1 R:R"**, **"TP2 R:R"**. Defaults Gold ke hisab se set hain (2.0x ATR SL, TP1 1:2.5, TP2 1:5). Silver chart pe lagate waqt inko badalna padega — neeche "Per-instrument verdict" table dekho.
 
-**Zaroori baat:** Ye backtest historical data pe he — future performance ki guarantee nahi deta, especially Gold/Silver/Oil me spread aur slippage real trading me zyada bhi ho sakta he (`Commission %` aur `Slippage` inputs ko apne broker ke actual cost se match karo taaki numbers realistic aayein). Teeno instruments (XAUUSD/XAGUSD/UKOIL) pe alag-alag apply karke compare karo ki kaunsa historically better winrate/R:R deta he — lekin final decision lene se pehle forward-test (demo account) pe bhi check karna better hai.
+**Zaroori baat:** `Commission %` aur `Slippage` inputs ko apne broker ke actual cost se match karo, warna numbers real trading se behtar dikhenge. Costs kitna farak daalte hain wo "Trading costs" section me he.
 
 ### Terminal se backtest (TradingView khole bina)
 
@@ -72,66 +72,84 @@ pip install pandas numpy
 python3 pine-scripts/backtest.py
 ```
 
-Ye script Yahoo Finance se free hourly data (~2+ saal) download karke exact wahi confluence logic (EMA cross + RSI + MACD + ATR filter + 4H trend filter, ATR-based SL, configurable R:R) Gold (GC=F), Silver (SI=F), aur Brent Crude (BZ=F futures — UKOil ka closest free proxy) pe backtest karta he, aur end me teeno ka comparison print karta he (sabse best expectancy wala sabse upar).
+Ye script Yahoo Finance se free hourly data (~2.4 saal) download karke wahi confluence logic (EMA cross + RSI + MACD + ATR filter + 4H trend filter, ATR-based SL, TP1/TP2 + breakeven) Gold (GC=F), Silver (SI=F), aur Brent Crude (BZ=F futures — UKOil ka closest free proxy) pe backtest karta he, har instrument ki apni settings ke sath, aur end me comparison print karta he.
 
-Settings (EMA/RSI/MACD/ATR/R:R length, values) file ke top me constants ke roop me hain — Pine strategy ke defaults se match karte hain, wahi change karke re-run kar sakte ho.
+Sab settings file ke top me constants ke roop me hain — indicator lengths, `COST_R` (trading cost), aur `PER_SYMBOL_SETTINGS` (per-instrument SL/TP1/TP2). Wahi change karke re-run kar sakte ho.
 
-Limitations: futures data spot/CFD se thoda different ho sakta he (rollover/basis), aur real spread-commission-slippage include nahi hai — sirf directional edge check karne ke liye he, live capital lagane se pehle demo pe verify zaroor karo.
+## Results (out-of-sample tested, costs included)
+
+**Pehle ek zaroori correction:** is README ke pichhle version me jo bhi numbers the — winrate, R:R sweep, per-instrument settings — wo sab galat the. `backtest.py` me ek bug tha jiski wajah se **4H trend filter kabhi apply hi nahi hota tha**, jabki Pine strategy usse apply karti he. Matlab Python ek alag hi strategy measure kar raha tha. Bug fix ho chuka he aur neeche ke saare numbers dobara nikale gaye hain.
+
+### Sabse bada finding: 4H trend filter hi asli edge he
+
+Filter ON vs OFF, out-of-sample test par (settings sirf pehle 60% data par choose ki, phir baaki 40% *unseen* data par verify ki, 0.05R cost ke sath):
+
+| Instrument | Filter ON — kitne % settings unseen data pe profitable | Filter OFF |
+|---|---|---|
+| Gold | **80%** (median +0.078R) | 36% (median -0.011R) |
+| Silver | **100%** (median +0.143R) | 38% (median -0.016R) |
+| UKOil | 0% (median -0.223R) | 7% (median -0.133R) |
+
+Filter ke bina strategy dono taraf breakeven ya negative he. Isliye `HTF Trend Filter` ko **kabhi OFF mat karo**.
+
+### Per-instrument verdict
+
+| Instrument | SL = ATR x | TP1 R:R | TP2 R:R | Unseen-data expectancy | Verdict |
+|---|---|---|---|---|---|
+| **Gold (XAUUSD)** | 2.0 | 2.5 | 5.0 | +0.292R (49 trades) | Sabse strong |
+| **Silver (XAGUSD)** | 1.0 | 2.0 | 3.0 | +0.115R (82 trades) | Sabse robust (100% settings positive) |
+| **UKOil (Brent)** | — | — | — | -0.357R (87 trades) | **Mat trade karo** |
+
+**UKOil is strategy ke liye kaam nahi karta.** 45 me se ek bhi setting unseen data par profitable nahi rahi. `backtest.py` me wo sirf isliye rakha he taaki comparison me dikhta rahe ki kyu avoid karna he.
+
+Silver ko maine pehle "weakest" bola tha — wo bhi bug ki wajah se galat tha. Filter ke sath Silver actually sabse **consistent** instrument he (har tested setting unseen data par profitable), bhale uska per-trade expectancy Gold se kam ho.
+
+### Trading costs
+
+Costs pehle model hi nahi hote the. Ab `backtest.py` me `COST_R` he (default 0.05 = stop distance ka 5%, har exit par charge hota he). Cost sensitivity:
+
+| Cost per exit | Gold | Silver |
+|---|---|---|
+| 0.00R | +0.301R | +0.109R |
+| 0.05R (default) | +0.251R | +0.059R |
+| 0.10R | +0.201R | +0.009R |
+| 0.15R | +0.151R | -0.041R |
+
+Gold high costs bhi jhel leta he. **Silver 0.10R se upar break ho jaata he** — agar tumhara broker ka Silver spread wide he to Silver ka edge khatam ho jaayega. `COST_R` ko apne broker ke actual spread se match karo.
 
 ## Winrate kam kyu lagta hai (aur kyu chalta hai)
 
-Ye ek trend-following system hai (EMA crossover based) — is type ke systems me **30-40% winrate normal aur expected hota hai**. Chhote losses jaldi cut hote hain, aur bade winners un sab losses ko cover kar dete hain. **Winrate akela dekhna misleading hai — Profit Factor aur Expectancy dekho.**
-
-R:R sensitivity sweep (2024-03-15 se 2026-08-07 tak, H1 data, `backtest.py` se):
-
-| R:R | Gold Winrate | Gold Expectancy | Silver Expectancy | UKOil Expectancy |
-|---|---|---|---|---|
-| 1:1.0 | 47.8% | -0.043R | -0.02R | -0.116R |
-| 1:1.5 | 39.5% | -0.013R | -0.02R | -0.032R |
-| 1:2.0 | 36.0% | +0.08R | -0.003R | -0.012R |
-| 1:2.5 | 30.8% | +0.08R | +0.036R | +0.012R |
-| **1:3.0** | **29.1%** | **+0.162R (best)** | 0.0R | +0.026R |
-
-Higher R:R = kam winrate lekin better expectancy (Gold ke liye). Silver aur UKOil kisi bhi single-target R:R pe consistently weak rehte hain — Gold hi is strategy ka strongest instrument hai.
+Ye ek trend-following system hai — is type ke systems me **27-40% winrate normal aur expected hota hai**. Chhote losses jaldi cut hote hain, bade winners un losses ko cover karte hain. **Winrate akela dekhna misleading hai — Profit Factor aur Expectancy dekho.** Gold ka winrate sirf ~35-40% he lekin Profit Factor 1.4-1.7 he, kyunki jeetne wale trades kaafi bade hote hain.
 
 ## TP1 + TP2 + Breakeven (Cost to Cost) SL
 
-Strategy ab do targets use karti he, single target ki jagah:
+Strategy do targets use karti he, single target ki jagah:
 
 - **TP1** — position ka partial % (default 50%) yahan book hota he, closer target pe
-- Jaise hi TP1 hit hota he, baaki 50% ka **Stop Loss entry price (cost-to-cost / breakeven) pe move ho jaata he** — ab wo trade "risk-free" ho jaata he
-- **TP2** — baaki 50% yahan tak chalta he (ya breakeven pe scratch ho jaata he agar wapas aa jaye)
+- Jaise hi TP1 hit hota he, baaki 50% ka **Stop Loss entry price (cost-to-cost / breakeven) pe move ho jaata he** — wo hissa risk-free ban jaata he
+- **TP2** — baaki 50% yahan tak chalta he (ya breakeven pe scratch ho jaata he agar price wapas aa jaye)
 
 Inputs `Risk Management` group me: `TP1 R:R`, `TP1 Exit Size (%)`, `TP2 R:R`, `TP1 hit hone par SL Breakeven pe move karo`.
 
-**Tradeoff jo backtest me mila:** Breakeven SL winrate zaroor badhata he, lekin agar TP1 bahut close rakho to bade winners beech me hi scratch ho jaate hain aur expectancy gir jaati he. TP1 ko thoda door rakhne se (zyada room) dono improve hote hain:
+Breakeven SL winrate badhata he, lekin TP1 ko bahut paas rakhne se bade winners beech me hi scratch ho jaate hain. Isliye TP1 ko theek-thaak door (1:2 se 1:2.5) rakhna behtar nikla.
 
-| TP1 R:R (50% qty, TP2 1:3, breakeven ON) | Gold Winrate | Gold Expectancy | UKOil Expectancy |
-|---|---|---|---|
-| 1:0.5 | 64.8% | +0.024R | -0.087R |
-| 1:1.0 | 47.4% | +0.006R | -0.112R |
-| **1:2.0 (default)** | **35.9%** | **+0.094R (best)** | **+0.009R** |
-| No TP1 / breakeven OFF (single target 1:3) | 29.1% | +0.081R | -0.012R |
+## Kitna bharosa karein in numbers par
 
-## Per-Instrument Recommended Settings
+Imaandari se: **utna nahi jitna table dekh ke lagta he.**
 
-SL/TP1/TP2 ka full grid search kiya (SL: 1.0-2.0x ATR, TP1: 1.0-2.5 R:R, TP2: 2.5-5.0 R:R, ~48 combinations per instrument, min 30 trades wale hi count kiye). Teeno instruments **alag-alag settings pe** best perform karte hain:
+- Unseen-data sample chhota he — Gold par sirf 49 trades. Us size par expectancy ka confidence interval kaafi wide he.
+- Data sirf ~2.4 saal ka he (Yahoo hourly data ki limit), aur wo bhi Gold/Silver ke ek strong bull run ka period he. Alag market regime me result alag ho sakta he.
+- Futures data (GC=F/SI=F/BZ=F) use kiya he — tumhare broker ka spot/CFD feed thoda alag hoga (rollover/basis difference).
+- Overnight gaps aur weekend risk model nahi kiye gaye.
+- Same bar me SL aur TP dono hit ho jaayein to conservatively SL maana gaya he.
 
-| Instrument | Stop Loss = ATR x | TP1 R:R | TP2 R:R | Winrate | Expectancy | Net R | Max DD |
-|---|---|---|---|---|---|---|---|
-| **Gold (XAUUSD)** — default | 1.5 | 2.0 | 5.0 | 36.8% | +0.143R | +37.0R | -15.0R |
-| **Silver (XAGUSD)** | 2.0 | 1.5 | 3.0 | 43.2% | +0.07R | +19.0R | -15.25R |
-| **UKOil (Brent)** | 1.5 | 2.5 | 4.0 | 32.0% | +0.068R | +17.25R | -21.0R |
-
-Script/strategy ka default Gold ki best setting pe rakha hai (kyunki Gold flagship/strongest instrument hai). **Silver ya UKOil chart pe lagate waqt inputs manually upar table ke hisab se change karo** — TradingView har chart ke liye settings alag se save rakhta hai.
-
-**Overfitting warning (zaroor padho):** Ye numbers ~48 combinations me se sabse best nikale gaye hain, sirf ek hi 2024-2026 ke data window par. Jitne zyada combinations test karoge, utna chance hai ki "best" wala sirf is specific history par luck se accha laga ho (curve-fitting), future me wahi na chale. In exact numbers par blindly bharosa mat karo — pehle demo account par forward-test karo, aur agar possible ho to settings ko ek data window (jaise 2024) par choose karke doosre window (2025-26) par alag se verify karo.
+Isko "ye strategy paisa banayegi" ka proof mat samjho. Ye itna kehta he: **Gold aur Silver par filter ke sath ek measurable edge dikha jo unseen data par tika raha; UKOil par nahi dikha.** Live paisa lagane se pehle demo par forward-test karo.
 
 ## Settings tweak karna (optional)
 
-- **Silver** thoda zyada volatile hota he — agar signals kam aa rahe hain to `Min ATR Ratio` thoda kam kar do (jaise 0.6)
-- **UKOil** gaps aur news spikes zyada deta he — `ATR Length` badha ke (jaise 21) noise kam kar sakte ho
-- Agar signals bahut kam aa rahe hain, `HTF Trend Filter` ko OFF kar ke dekho
+- **`HTF Trend Filter` ko OFF mat karo.** Ye tempting lagta he kyunki OFF karne se signals kaafi zyada aate hain — lekin test me wahi single change Gold ko +0.29R se -0.06R (unseen data par) le jaata he. Kam signals lena hi yahan point he.
+- Signals kam lag rahe hain to ye normal he — filter ke sath ~2.4 saal me 114 (Gold) se 217 (Silver) trades aate hain. Zyada trades chahiye to lower timeframe use karo, filter mat hatao.
+- `COST_R` (backtest.py me) ko apne broker ke actual spread se match karo — Silver ka edge 0.10R cost se upar khatam ho jaata he.
 
 ## Disclaimer
 

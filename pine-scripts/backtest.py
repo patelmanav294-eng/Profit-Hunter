@@ -18,6 +18,15 @@ SYMBOLS = {
     "UKOIL (Brent Crude, via BZ=F futures)": "BZ=F",
 }
 
+# (SL_ATR_MULT, TP1_RR, TP2_RR) chosen on the training half only - see README.
+# UKOil has no setting that survived out-of-sample and is kept here only so the
+# comparison keeps showing why it should not be traded with this strategy.
+PER_SYMBOL_SETTINGS = {
+    "GC=F": (2.0, 2.5, 5.0),
+    "SI=F": (1.0, 2.0, 3.0),
+    "BZ=F": (1.0, 2.5, 5.0),
+}
+
 # ---------------- Data fetch ----------------
 
 def fetch_yahoo(ticker, rng="730d", interval="60m"):
@@ -95,13 +104,17 @@ MACD_FAST, MACD_SLOW, MACD_SIGNAL = 12, 26, 9
 ATR_LEN = 14
 ATR_AVG_LEN = 50
 MIN_ATR_RATIO = 0.8
-USE_HTF_FILTER = True
+USE_HTF_FILTER = True  # the single biggest edge contributor - see README, do not turn this off
 HTF_EMA_LEN = 50
-SL_ATR_MULT = 1.5
-TP1_RR = 2.0           # TP1 = SL distance x this multiple (partial exit target) - sweep showed 1:2 best balance
+SL_ATR_MULT = 2.0
+TP1_RR = 2.5           # TP1 = SL distance x this multiple (partial exit target)
 TP1_QTY_FRACTION = 0.5  # fraction of position closed at TP1
-TP2_RR = 5.0           # TP2 = SL distance x this multiple (final target for the runner) - best for Gold per grid search
+TP2_RR = 5.0           # TP2 = SL distance x this multiple (final target for the runner)
 MOVE_SL_TO_BREAKEVEN = True  # after TP1 fills, move SL to entry price (cost-to-cost) for the runner
+# Round-trip trading cost (spread + slippage) as a fraction of the stop distance,
+# charged on each exit. Zero costs flatter the results materially - set this to
+# match your own broker rather than leaving the default.
+COST_R = 0.05
 
 
 def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
@@ -116,7 +129,11 @@ def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
     return aligned
 
 
-def run_backtest(df: pd.DataFrame) -> dict:
+def run_backtest(df: pd.DataFrame, sl_mult: float | None = None,
+                 tp1_rr: float | None = None, tp2_rr: float | None = None) -> dict:
+    sl_mult = SL_ATR_MULT if sl_mult is None else sl_mult
+    tp1_rr = TP1_RR if tp1_rr is None else tp1_rr
+    tp2_rr = TP2_RR if tp2_rr is None else tp2_rr
     df = df.copy().reset_index(drop=True)
     df["ema_fast"] = df["close"].ewm(span=EMA_FAST_LEN, adjust=False).mean()
     df["ema_slow"] = df["close"].ewm(span=EMA_SLOW_LEN, adjust=False).mean()
@@ -168,13 +185,13 @@ def run_backtest(df: pd.DataFrame) -> dict:
                 if hit_sl:
                     # SL hit before TP1 (also the conservative assumption if both hit same bar):
                     # full position stops out for -1R, nothing banked yet
-                    position["r_total"] = -1.0
+                    position["r_total"] = -1.0 - COST_R
                     position["exit_i"] = i
                     trades.append(position)
                     position = None
                 elif hit_tp1:
                     position["tp1_hit"] = True
-                    position["r_total"] = TP1_RR * TP1_QTY_FRACTION
+                    position["r_total"] = (tp1_rr - COST_R) * TP1_QTY_FRACTION
                     if MOVE_SL_TO_BREAKEVEN:
                         position["sl"] = position["entry"]
                     # runner continues, don't close the trade yet
@@ -188,13 +205,13 @@ def run_backtest(df: pd.DataFrame) -> dict:
 
                 if hit_sl:
                     # conservative assumption if both hit same bar too: SL/breakeven first
-                    runner_r = (0.0 if MOVE_SL_TO_BREAKEVEN else -1.0) * remaining_qty
-                    position["r_total"] += runner_r
+                    stop_r = 0.0 if MOVE_SL_TO_BREAKEVEN else -1.0
+                    position["r_total"] += (stop_r - COST_R) * remaining_qty
                     position["exit_i"] = i
                     trades.append(position)
                     position = None
                 elif hit_tp2:
-                    position["r_total"] += TP2_RR * remaining_qty
+                    position["r_total"] += (tp2_rr - COST_R) * remaining_qty
                     position["exit_i"] = i
                     trades.append(position)
                     position = None
@@ -203,9 +220,9 @@ def run_backtest(df: pd.DataFrame) -> dict:
             entry_atr = row["atr"]
             if pd.isna(entry_atr) or entry_atr <= 0:
                 continue
-            sl_dist = entry_atr * SL_ATR_MULT
-            tp1_dist = sl_dist * TP1_RR
-            tp2_dist = sl_dist * TP2_RR
+            sl_dist = entry_atr * sl_mult
+            tp1_dist = sl_dist * tp1_rr
+            tp2_dist = sl_dist * tp2_rr
 
             if bool(buy_signal.iloc[i]):
                 position = {
@@ -242,10 +259,11 @@ def run_backtest(df: pd.DataFrame) -> dict:
         "losses": losses,
         "scratches_breakeven": scratches,
         "win_rate_pct": round(win_rate, 1),
-        "tp1_rr": TP1_RR,
+        "tp1_rr": tp1_rr,
         "tp1_qty_pct": round(TP1_QTY_FRACTION * 100),
-        "tp2_rr": TP2_RR,
+        "tp2_rr": tp2_rr,
         "move_sl_to_breakeven": MOVE_SL_TO_BREAKEVEN,
+        "cost_r_per_exit": COST_R,
         "profit_factor": round(profit_factor, 2) if np.isfinite(profit_factor) else None,
         "net_r": round(float(net_r), 2),
         "expectancy_r": round(float(expectancy_r), 3),
@@ -257,10 +275,11 @@ def run_backtest(df: pd.DataFrame) -> dict:
 if __name__ == "__main__":
     summary = []
     for label, ticker in SYMBOLS.items():
+        settings = PER_SYMBOL_SETTINGS.get(ticker)
         print(f"\n=== {label} [{ticker}] ===")
         try:
             df = fetch_yahoo(ticker)
-            result = run_backtest(df)
+            result = run_backtest(df, *settings) if settings else run_backtest(df)
             for k, v in result.items():
                 print(f"  {k}: {v}")
             summary.append((label, result))
