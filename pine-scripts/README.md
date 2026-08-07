@@ -92,7 +92,28 @@ R:R sensitivity sweep (2024-03-15 se 2026-08-07 tak, H1 data, `backtest.py` se):
 | 1:2.5 | 30.8% | +0.08R | +0.036R | +0.012R |
 | **1:3.0** | **29.1%** | **+0.162R (best)** | 0.0R | +0.026R |
 
-Higher R:R = kam winrate lekin better expectancy (Gold ke liye). Isliye default R:R **1:3** rakha gaya hai (indicator/strategy me `Risk:Reward Ratio` input se change kar sakte ho). Silver aur UKOil kisi bhi R:R pe consistently weak rehte hain — Gold hi is strategy ka strongest instrument hai.
+Higher R:R = kam winrate lekin better expectancy (Gold ke liye). Silver aur UKOil kisi bhi single-target R:R pe consistently weak rehte hain — Gold hi is strategy ka strongest instrument hai.
+
+## TP1 + TP2 + Breakeven (Cost to Cost) SL
+
+Strategy ab do targets use karti he, single target ki jagah:
+
+- **TP1** — position ka partial % (default 50%) yahan book hota he, closer target pe
+- Jaise hi TP1 hit hota he, baaki 50% ka **Stop Loss entry price (cost-to-cost / breakeven) pe move ho jaata he** — ab wo trade "risk-free" ho jaata he
+- **TP2** — baaki 50% yahan tak chalta he (ya breakeven pe scratch ho jaata he agar wapas aa jaye)
+
+Inputs `Risk Management` group me: `TP1 R:R`, `TP1 Exit Size (%)`, `TP2 R:R`, `TP1 hit hone par SL Breakeven pe move karo`.
+
+**Tradeoff jo backtest me mila:** Breakeven SL winrate zaroor badhata he, lekin agar TP1 bahut close rakho to bade winners beech me hi scratch ho jaate hain aur expectancy gir jaati he. TP1 ko thoda door rakhne se (zyada room) dono improve hote hain:
+
+| TP1 R:R (50% qty, TP2 1:3, breakeven ON) | Gold Winrate | Gold Expectancy | UKOil Expectancy |
+|---|---|---|---|
+| 1:0.5 | 64.8% | +0.024R | -0.087R |
+| 1:1.0 | 47.4% | +0.006R | -0.112R |
+| **1:2.0 (default)** | **35.9%** | **+0.094R (best)** | **+0.009R** |
+| No TP1 / breakeven OFF (single target 1:3) | 29.1% | +0.081R | -0.012R |
+
+Default ab **TP1 = 1:2, TP2 = 1:3, 50% qty, breakeven ON** hai — Gold ke liye ye purane single-target setup se bhi behtar hai (winrate aur expectancy dono), aur UKOil ka drawdown bhi kaafi kam ho gaya (-49R se -22.5R). Silver phir bhi weak rehta he har configuration me.
 
 ## Settings tweak karna (optional)
 

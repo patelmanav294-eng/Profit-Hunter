@@ -98,7 +98,10 @@ MIN_ATR_RATIO = 0.8
 USE_HTF_FILTER = True
 HTF_EMA_LEN = 50
 SL_ATR_MULT = 1.5
-RISK_REWARD = 3.0  # backtest sweep showed 1:3 gives the best expectancy despite lower winrate
+TP1_RR = 2.0           # TP1 = SL distance x this multiple (partial exit target) - sweep showed 1:2 best balance
+TP1_QTY_FRACTION = 0.5  # fraction of position closed at TP1
+TP2_RR = 3.0           # TP2 = SL distance x this multiple (final target for the runner)
+MOVE_SL_TO_BREAKEVEN = True  # after TP1 fills, move SL to entry price (cost-to-cost) for the runner
 
 
 def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
@@ -138,68 +141,90 @@ def run_backtest(df: pd.DataFrame) -> dict:
     buy_signal = cross_up & rsi_bull & macd_bull & vol_ok & htf_bull_ok
     sell_signal = cross_down & rsi_bear & macd_bear & vol_ok & htf_bear_ok
 
+    remaining_qty = 1 - TP1_QTY_FRACTION
     trades = []
-    position = None  # dict with direction, entry, sl, tp, entry_i
+    position = None  # dict with direction, entry, sl, tp1, tp2, tp1_hit, r_total, entry_i
 
     for i in range(len(df)):
         row = df.iloc[i]
 
         if position is not None:
             direction = position["direction"]
-            hit_sl = row["low"] <= position["sl"] if direction == "long" else row["high"] >= position["sl"]
-            hit_tp = row["high"] >= position["tp"] if direction == "long" else row["low"] <= position["tp"]
-            if hit_sl and hit_tp:
-                # both thresholds crossed in the same bar and we can't tell which
-                # happened first from OHLC alone -> assume the worse case (loss)
-                position["outcome"] = "loss"
-                position["exit_i"] = i
-                trades.append(position)
-                position = None
-            elif hit_sl:
-                position["outcome"] = "loss"
-                position["exit_i"] = i
-                trades.append(position)
-                position = None
-            elif hit_tp:
-                position["outcome"] = "win"
-                position["exit_i"] = i
-                trades.append(position)
-                position = None
+
+            if not position["tp1_hit"]:
+                if direction == "long":
+                    hit_sl = row["low"] <= position["sl"]
+                    hit_tp1 = row["high"] >= position["tp1"]
+                else:
+                    hit_sl = row["high"] >= position["sl"]
+                    hit_tp1 = row["low"] <= position["tp1"]
+
+                if hit_sl:
+                    # SL hit before TP1 (also the conservative assumption if both hit same bar):
+                    # full position stops out for -1R, nothing banked yet
+                    position["r_total"] = -1.0
+                    position["exit_i"] = i
+                    trades.append(position)
+                    position = None
+                elif hit_tp1:
+                    position["tp1_hit"] = True
+                    position["r_total"] = TP1_RR * TP1_QTY_FRACTION
+                    if MOVE_SL_TO_BREAKEVEN:
+                        position["sl"] = position["entry"]
+                    # runner continues, don't close the trade yet
+            else:
+                if direction == "long":
+                    hit_sl = row["low"] <= position["sl"]
+                    hit_tp2 = row["high"] >= position["tp2"]
+                else:
+                    hit_sl = row["high"] >= position["sl"]
+                    hit_tp2 = row["low"] <= position["tp2"]
+
+                if hit_sl:
+                    # conservative assumption if both hit same bar too: SL/breakeven first
+                    runner_r = (0.0 if MOVE_SL_TO_BREAKEVEN else -1.0) * remaining_qty
+                    position["r_total"] += runner_r
+                    position["exit_i"] = i
+                    trades.append(position)
+                    position = None
+                elif hit_tp2:
+                    position["r_total"] += TP2_RR * remaining_qty
+                    position["exit_i"] = i
+                    trades.append(position)
+                    position = None
 
         if position is None:
             entry_atr = row["atr"]
             if pd.isna(entry_atr) or entry_atr <= 0:
                 continue
             sl_dist = entry_atr * SL_ATR_MULT
-            tp_dist = sl_dist * RISK_REWARD
+            tp1_dist = sl_dist * TP1_RR
+            tp2_dist = sl_dist * TP2_RR
 
             if bool(buy_signal.iloc[i]):
                 position = {
-                    "direction": "long", "entry_i": i, "entry": row["close"],
-                    "sl": row["close"] - sl_dist, "tp": row["close"] + tp_dist,
+                    "direction": "long", "entry_i": i, "entry": row["close"], "tp1_hit": False, "r_total": 0.0,
+                    "sl": row["close"] - sl_dist, "tp1": row["close"] + tp1_dist, "tp2": row["close"] + tp2_dist,
                 }
             elif bool(sell_signal.iloc[i]):
                 position = {
-                    "direction": "short", "entry_i": i, "entry": row["close"],
-                    "sl": row["close"] + sl_dist, "tp": row["close"] - tp_dist,
+                    "direction": "short", "entry_i": i, "entry": row["close"], "tp1_hit": False, "r_total": 0.0,
+                    "sl": row["close"] + sl_dist, "tp1": row["close"] - tp1_dist, "tp2": row["close"] - tp2_dist,
                 }
 
     n = len(trades)
-    wins = sum(1 for t in trades if t["outcome"] == "win")
-    losses = n - wins
+    r_values = np.array([t["r_total"] for t in trades])
+    wins = int((r_values > 0).sum())
+    losses = int((r_values < 0).sum())
+    scratches = int((r_values == 0).sum())
     win_rate = (wins / n * 100) if n else 0.0
-    # every trade risks 1R and (by construction) wins RISK_REWARD*R or loses 1R
-    gross_win_r = wins * RISK_REWARD
-    gross_loss_r = losses * 1.0
+    gross_win_r = r_values[r_values > 0].sum() if n else 0.0
+    gross_loss_r = -r_values[r_values < 0].sum() if n else 0.0
     profit_factor = (gross_win_r / gross_loss_r) if gross_loss_r > 0 else float("inf") if gross_win_r > 0 else 0.0
-    net_r = gross_win_r - gross_loss_r
+    net_r = r_values.sum() if n else 0.0
     expectancy_r = (net_r / n) if n else 0.0
 
-    equity = [0.0]
-    for t in trades:
-        r = RISK_REWARD if t["outcome"] == "win" else -1.0
-        equity.append(equity[-1] + r)
-    equity = np.array(equity)
+    equity = np.concatenate(([0.0], np.cumsum(r_values))) if n else np.array([0.0])
     running_max = np.maximum.accumulate(equity)
     drawdown = equity - running_max
     max_dd_r = drawdown.min() if len(drawdown) else 0.0
@@ -209,12 +234,16 @@ def run_backtest(df: pd.DataFrame) -> dict:
         "trades": n,
         "wins": wins,
         "losses": losses,
+        "scratches_breakeven": scratches,
         "win_rate_pct": round(win_rate, 1),
-        "configured_rr": RISK_REWARD,
+        "tp1_rr": TP1_RR,
+        "tp1_qty_pct": round(TP1_QTY_FRACTION * 100),
+        "tp2_rr": TP2_RR,
+        "move_sl_to_breakeven": MOVE_SL_TO_BREAKEVEN,
         "profit_factor": round(profit_factor, 2) if np.isfinite(profit_factor) else None,
-        "net_r": round(net_r, 2),
-        "expectancy_r": round(expectancy_r, 3),
-        "max_drawdown_r": round(max_dd_r, 2),
+        "net_r": round(float(net_r), 2),
+        "expectancy_r": round(float(expectancy_r), 3),
+        "max_drawdown_r": round(float(max_dd_r), 2),
         "date_range": f"{df['time'].iloc[0].date()} to {df['time'].iloc[-1].date()}" if len(df) else "n/a",
     }
 

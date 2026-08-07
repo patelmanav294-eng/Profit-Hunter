@@ -34,10 +34,14 @@ useHtfFilter = input.bool(true, "HTF Trend Filter On/Off", group=grpTrendFilter)
 htfRes = input.timeframe("240", "Higher Timeframe", group=grpTrendFilter)
 htfEmaLen = input.int(50, "HTF EMA Length", group=grpTrendFilter)
 
-grpRisk = "Risk Management (this is what sets your R:R)"
+grpRisk = "Risk Management (TP1 partial + TP2 final + Breakeven)"
 slAtrMultiplier = input.float(1.5, "Stop Loss = ATR x", minval=0.1, step=0.1, group=grpRisk)
-riskReward = input.float(3.0, "Risk:Reward Ratio (TP = SL x this)", minval=0.5, step=0.1, group=grpRisk,
-     tooltip="3.0 = for every 1 unit risked, target is 3 units reward (1:3 R:R). Backtest par isi R:R pe winrate kam (~30%) hone ke bawajood expectancy sabse best mili — trend-following systems me low winrate normal hai, expectancy dekho.")
+tp1RR = input.float(2.0, "TP1 R:R (partial exit)", minval=0.1, step=0.1, group=grpRisk,
+     tooltip="TP1 = Stop-Loss distance x this multiple. Position ka partial % yahan pehla profit book hota hai. Backtest me 1:2 sabse balanced mila (winrate bhi behtar, expectancy bhi).")
+tp1QtyPercent = input.int(50, "TP1 Exit Size (%)", minval=1, maxval=99, group=grpRisk)
+tp2RR = input.float(3.0, "TP2 R:R (final target)", minval=0.5, step=0.1, group=grpRisk,
+     tooltip="Baaki position yahan tak chalti hai. Backtest me 1:3 par expectancy sabse best mili — trend-following systems me low winrate normal hai, expectancy dekho.")
+moveSlToBreakeven = input.bool(true, "TP1 hit hone par SL Breakeven (Cost to Cost) pe move karo", group=grpRisk)
 allowLongs = input.bool(true, "Allow Long Trades", group=grpRisk)
 allowShorts = input.bool(true, "Allow Short Trades", group=grpRisk)
 
@@ -81,25 +85,43 @@ inWindow = time >= startDate
 buySignal = crossUp and rsiBull and macdBull and volatilityOk and htfBullOk and inWindow
 sellSignal = crossDown and rsiBear and macdBear and volatilityOk and htfBearOk and inWindow
 
-// ============ ENTRIES (fixed SL/TP relative to actual fill price => exact R:R) ============
+// ============ ENTRIES (fixed SL/TP1/TP2 relative to actual fill price => exact R:R) ============
 var float entryAtr = na
+var float entryPriceLocked = na
+var bool tp1Hit = false
 
 if buySignal and allowLongs and strategy.position_size <= 0
     entryAtr := atrVal
+    entryPriceLocked := close
+    tp1Hit := false
     strategy.entry("Long", strategy.long)
 
 if sellSignal and allowShorts and strategy.position_size >= 0
     entryAtr := atrVal
+    entryPriceLocked := close
+    tp1Hit := false
     strategy.entry("Short", strategy.short)
 
 slTicks = (entryAtr * slAtrMultiplier) / syminfo.mintick
-tpTicks = slTicks * riskReward
+tp1Ticks = slTicks * tp1RR
+tp2Ticks = slTicks * tp2RR
+
+// detect TP1 fill (approximates the actual TP1 exit order) so SL can move to breakeven for the runner
+if strategy.position_size > 0 and not tp1Hit and (high - entryPriceLocked) >= tp1Ticks * syminfo.mintick
+    tp1Hit := true
+
+if strategy.position_size < 0 and not tp1Hit and (entryPriceLocked - low) >= tp1Ticks * syminfo.mintick
+    tp1Hit := true
+
+activeSlTicks = (moveSlToBreakeven and tp1Hit) ? 0.0 : slTicks
 
 if strategy.position_size > 0
-    strategy.exit("Long Exit", from_entry="Long", loss=slTicks, profit=tpTicks)
+    strategy.exit("Long TP1", from_entry="Long", qty_percent=tp1QtyPercent, profit=tp1Ticks, loss=activeSlTicks)
+    strategy.exit("Long TP2", from_entry="Long", qty_percent=100, profit=tp2Ticks, loss=activeSlTicks)
 
 if strategy.position_size < 0
-    strategy.exit("Short Exit", from_entry="Short", loss=slTicks, profit=tpTicks)
+    strategy.exit("Short TP1", from_entry="Short", qty_percent=tp1QtyPercent, profit=tp1Ticks, loss=activeSlTicks)
+    strategy.exit("Short TP2", from_entry="Short", qty_percent=100, profit=tp2Ticks, loss=activeSlTicks)
 
 // ============ PLOTTING ============
 plot(showEmas ? emaFast : na, "Fast EMA", color=color.new(color.yellow, 0), linewidth=1)
@@ -107,3 +129,6 @@ plot(showEmas ? emaSlow : na, "Slow EMA", color=color.new(color.orange, 0), line
 
 plotshape(buySignal, title="Buy Signal", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.small, text="BUY")
 plotshape(sellSignal, title="Sell Signal", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0), size=size.small, text="SELL")
+
+tp1JustHit = tp1Hit and not tp1Hit[1]
+plotchar(tp1JustHit, title="TP1 Hit / SL to Breakeven", char="●", location=location.abovebar, color=color.new(color.aqua, 0), size=size.tiny)
