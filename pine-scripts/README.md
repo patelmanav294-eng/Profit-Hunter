@@ -78,6 +78,22 @@ Settings (EMA/RSI/MACD/ATR/R:R length, values) file ke top me constants ke roop 
 
 Limitations: futures data spot/CFD se thoda different ho sakta he (rollover/basis), aur real spread-commission-slippage include nahi hai — sirf directional edge check karne ke liye he, live capital lagane se pehle demo pe verify zaroor karo.
 
+## Winrate kam kyu lagta hai (aur kyu chalta hai)
+
+Ye ek trend-following system hai (EMA crossover based) — is type ke systems me **30-40% winrate normal aur expected hota hai**. Chhote losses jaldi cut hote hain, aur bade winners un sab losses ko cover kar dete hain. **Winrate akela dekhna misleading hai — Profit Factor aur Expectancy dekho.**
+
+R:R sensitivity sweep (2024-03-15 se 2026-08-07 tak, H1 data, `backtest.py` se):
+
+| R:R | Gold Winrate | Gold Expectancy | Silver Expectancy | UKOil Expectancy |
+|---|---|---|---|---|
+| 1:1.0 | 47.8% | -0.043R | -0.02R | -0.116R |
+| 1:1.5 | 39.5% | -0.013R | -0.02R | -0.032R |
+| 1:2.0 | 36.0% | +0.08R | -0.003R | -0.012R |
+| 1:2.5 | 30.8% | +0.08R | +0.036R | +0.012R |
+| **1:3.0** | **29.1%** | **+0.162R (best)** | 0.0R | +0.026R |
+
+Higher R:R = kam winrate lekin better expectancy (Gold ke liye). Isliye default R:R **1:3** rakha gaya hai (indicator/strategy me `Risk:Reward Ratio` input se change kar sakte ho). Silver aur UKOil kisi bhi R:R pe consistently weak rehte hain — Gold hi is strategy ka strongest instrument hai.
+
 ## Settings tweak karna (optional)
 
 - **Silver** thoda zyada volatile hota he — agar signals kam aa rahe hain to `Min ATR Ratio` thoda kam kar do (jaise 0.6)

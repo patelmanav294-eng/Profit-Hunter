@@ -98,7 +98,7 @@ MIN_ATR_RATIO = 0.8
 USE_HTF_FILTER = True
 HTF_EMA_LEN = 50
 SL_ATR_MULT = 1.5
-RISK_REWARD = 2.0
+RISK_REWARD = 3.0  # backtest sweep showed 1:3 gives the best expectancy despite lower winrate
 
 
 def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
