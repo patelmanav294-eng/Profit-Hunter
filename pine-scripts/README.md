@@ -1,10 +1,15 @@
-# Profit Hunter — Buy/Sell Signal Tool
+# Trend Anchor — Buy/Sell Signal Tool
 
 TradingView indicator jo Gold, Silver aur Oil charts par **BUY/SELL signal** deta hai, aur saath me
 **Entry, Stop Loss, TP1 aur TP2 ki exact lines** bhi chart par draw karta hai — taaki signal aate hi
 pata ho kahan enter karna hai, kahan stop lagana hai, aur kahan book karna hai.
 
-**Jo file chart par lagani hai: `profit-hunter-signals.pine`**
+**Naam kyun "Trend Anchor":** is strategy ka poora edge 4-hour trend filter se aata hai — bada trend
+hi wo *anchor* hai jiske saath hi trade liya jaata hai. Testing me uske bina strategy breakeven ya
+negative ho jaati hai. Doosra hissa risk structure ka hai: TP1 par aadha book karke stop breakeven
+par le aana.
+
+**Jo file chart par lagani hai: `trend-anchor-signals.pine`**
 
 Baaki files sirf verification ke liye hain (neeche "Repo me kya kya hai" dekho).
 
@@ -14,7 +19,7 @@ Baaki files sirf verification ke liye hain (neeche "Repo me kya kya hai" dekho).
 
 1. TradingView par apna chart kholo — **XAUUSD**, timeframe **H1** (1 hour)
 2. Neeche **Pine Editor** tab kholo
-3. `profit-hunter-signals.pine` ka poora code copy-paste karo
+3. `trend-anchor-signals.pine` ka poora code copy-paste karo
 4. **Add to Chart** dabao
 
 Bas. Settings symbol ke hisab se apne aap set ho jaati hain — Gold par gold wali, Silver par silver
@@ -48,7 +53,7 @@ stop line apne aap entry par shift ho jaayegi aur panel me "Stop breakeven par h
 ## Phone par alert lagana
 
 1. Chart par right-click → **Add Alert**
-2. Condition me **PH Signals** select karo
+2. Condition me **Trend Anchor** select karo
 3. Neeche dropdown me **"Any alert() function call"** choose karo
 4. Notification me apna app / SMS / email select karo → **Create**
 
@@ -146,9 +151,9 @@ Warna chalti hui candle me signal aata-jaata dikhega aur tum galat entry le loge
 
 | File | Kaam |
 |---|---|
-| **`profit-hunter-signals.pine`** | **Ye chart par lagao.** Signal + Entry/SL/TP lines + panel + alerts |
-| `profit-hunter-gold-silver-oil-strategy.pine` | TradingView Strategy Tester version — khud numbers verify karne ke liye |
-| `profit-hunter-gold-silver-oil-signal.pine` | Purana simple indicator (sirf arrows + score table) |
+| **`trend-anchor-signals.pine`** | **Ye chart par lagao.** Signal + Entry/SL/TP lines + panel + alerts |
+| `trend-anchor-strategy.pine` | TradingView Strategy Tester version — khud numbers verify karne ke liye |
+| `trend-anchor-legacy-indicator.pine` | Purana simple indicator (sirf arrows + score table) |
 | `backtest.py` | Terminal se 2-saal ka backtest |
 | `validate.py` | Reality check — signal random entries se behtar hai ya nahi |
 

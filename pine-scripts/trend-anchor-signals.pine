@@ -1,4 +1,4 @@
-// Profit Hunter — Trade-Ready Signal Tool
+// Trend Anchor — Trade-Ready Signal Tool
 //
 // Chart par BUY/SELL signal deta hai aur uske saath Entry, Stop Loss, TP1 aur TP2
 // ki exact lines bhi draw karta hai — taaki signal aate hi pata ho kahan enter karna
@@ -8,7 +8,7 @@
 // Backtest ke numbers ke liye README dekho — wo pichhle 2 saal ke H1 data par hain.
 //
 //@version=5
-indicator("Profit Hunter Signals", shorttitle="PH Signals", overlay=true, max_labels_count=500)
+indicator("Trend Anchor Signals", shorttitle="Trend Anchor", overlay=true, max_labels_count=500)
 
 // ============================================================
 // INPUTS
@@ -236,7 +236,7 @@ if justClosed
     alert("TRADE CLOSED — " + syminfo.ticker + "\n" + closeReason, alert.freq_once_per_bar_close)
 
 // Simple alerts (dropdown se select karne ke liye, levels ke bina)
-alertcondition(newBuy, title="Profit Hunter BUY", message="BUY signal — {{ticker}} {{interval}}")
-alertcondition(newSell, title="Profit Hunter SELL", message="SELL signal — {{ticker}} {{interval}}")
-alertcondition(justHitTp1, title="Profit Hunter TP1 hit (stop ko breakeven par le jao)",
+alertcondition(newBuy, title="Trend Anchor BUY", message="BUY signal — {{ticker}} {{interval}}")
+alertcondition(newSell, title="Trend Anchor SELL", message="SELL signal — {{ticker}} {{interval}}")
+alertcondition(justHitTp1, title="Trend Anchor TP1 hit (stop ko breakeven par le jao)",
      message="TP1 hit — {{ticker}}: 50% book karo, stop breakeven par le jao")

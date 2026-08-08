@@ -1,5 +1,5 @@
 # Standalone backtest for the Gold/Silver/UKOil confluence strategy
-# (mirrors profit-hunter-signals.pine / the Pine strategy file).
+# (mirrors trend-anchor-signals.pine / the Pine strategy file).
 # Downloads the last 2 years of hourly data from Yahoo Finance (no API key
 # needed) and reports real Win Rate, Profit Factor, and R:R per instrument.
 # Requires: pandas, numpy  (pip install pandas numpy)

@@ -1,10 +1,10 @@
-// Profit Hunter — Gold / Silver / UKOil STRATEGY (backtestable)
+// Trend Anchor — Gold / Silver / UKOil STRATEGY (backtestable)
 // Same signal logic as the indicator, wired to TradingView's Strategy Tester
 // so you get real historical Win Rate, R:R, Profit Factor, Max Drawdown per symbol.
 // Apply separately to XAUUSD, XAGUSD, and UKOIL (or WTI/USOIL) charts, then open the
 // "Strategy Tester" tab at the bottom of TradingView to read the results.
 //@version=5
-strategy("Profit Hunter - Gold/Silver/Oil Strategy", shorttitle="PH Strategy", overlay=true,
+strategy("Trend Anchor Strategy", shorttitle="TA Strategy", overlay=true,
      initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=1,
      commission_type=strategy.commission.percent, commission_value=input.float(0.02, "Commission %"),
      slippage=input.int(2, "Slippage (ticks)"), pyramiding=0, process_orders_on_close=true)

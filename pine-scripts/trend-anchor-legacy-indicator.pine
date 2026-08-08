@@ -1,8 +1,8 @@
-// Profit Hunter — Gold / Silver / UKOil Buy-Sell Signal Indicator
+// Trend Anchor — Gold / Silver / UKOil Buy-Sell Signal Indicator (legacy)
 // Apply to XAUUSD, XAGUSD, and UKOIL (or WTI/USOIL) charts.
 // Signal = EMA trend cross + RSI momentum zone + MACD confirmation + ATR volatility filter (+ optional HTF trend filter).
 //@version=5
-indicator("Profit Hunter - Gold/Silver/Oil Signal", shorttitle="PH Signal", overlay=true, max_labels_count=500)
+indicator("Trend Anchor - Legacy Indicator", shorttitle="TA Legacy", overlay=true, max_labels_count=500)
 
 // ============ INPUTS ============
 grpTrend = "Trend (EMA)"
@@ -105,5 +105,5 @@ if showTable and barstate.islast
     table.cell(scoreTable, 1, 5, trendUp ? str.tostring(bullScore) + "/5 Bull" : trendDown ? str.tostring(bearScore) + "/5 Bear" : "0/5", text_color=color.white, bgcolor=color.new(color.blue, 60))
 
 // ============ ALERTS ============
-alertcondition(buySignal, title="Profit Hunter BUY Signal", message="{{ticker}} par BUY signal bana hai ({{interval}} timeframe) - Profit Hunter Indicator")
-alertcondition(sellSignal, title="Profit Hunter SELL Signal", message="{{ticker}} par SELL signal bana hai ({{interval}} timeframe) - Profit Hunter Indicator")
+alertcondition(buySignal, title="Trend Anchor BUY Signal", message="{{ticker}} par BUY signal bana hai ({{interval}} timeframe) - Trend Anchor")
+alertcondition(sellSignal, title="Trend Anchor SELL Signal", message="{{ticker}} par SELL signal bana hai ({{interval}} timeframe) - Trend Anchor")
