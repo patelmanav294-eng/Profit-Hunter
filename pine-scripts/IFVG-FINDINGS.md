@@ -41,6 +41,7 @@ Ye tumhare indicator me abhi set kar sakte ho:
 | `R:R Target` | **4.0** | 1:3 aur 1:5 dono se behtar nikla |
 | `Entry Trigger` | **Wick touch** | "Close inside" aadhe trades kha jaata hai |
 | `Min Strength` | 4 | theek hai, lekin niche "star system" section padho |
+| **Timeframe** | **H1** | H4 se behtar — niche H4 section dekho |
 | `★ V — Volume Star` | OFF | pehle se sahi (XAUUSD tick volume) |
 | `Mitigation Trigger` | koi bhi | wick-touch entry ke saath farak nahi padta |
 
@@ -120,26 +121,20 @@ isiliye upar wala direction + Impulse + HTF filter wala combo zyada important ha
 
 Null test — wahi SL/TP mechanics, lekin entry **random price levels** par:
 
-| | Expectancy |
-|---|---|
-| IFVG zones | **+0.260R** (588 trades) |
-| Random levels | −0.046R [5th −0.186, 95th +0.093] |
-| p-value | **0.000** |
+Random entries ka direction mix real trades se match kiya gaya (warna comparison
+jhootha ho jaata — bull market me random longs waise hi acche dikhte hain):
 
-Matlab **IFVG concept me asli information hai** — ye random support/resistance
-se behtar hai. Problem concept me nahi, parameter tuning me hai.
+| | IFVG zones | Random levels | p |
+|---|---|---|---|
+| H1 mixed direction | **+0.260R** (588) | −0.048R | **0.000** ✅ |
+| H1 **bullish-only** | **+0.549R** (269) | +0.211R | **0.010** ✅ |
 
----
+Dono tarah se H1 par zones random se behtar nikle. Matlab **IFVG concept me asli
+information hai** — ye random support/resistance se behtar hai. Problem concept me
+nahi, parameter tuning me thi.
 
-## Timeframe
-
-| | Trades | Win | Expectancy | PF |
-|---|---|---|---|---|
-| **H1** | 591 | 24.0% | +0.151R | 1.19 |
-| H4 | 198 | 21.2% | +0.011R | 1.01 |
-
-H1 par zyada trades aur behtar edge. H4 par bullish-only bahut accha dikhta hai
-(+0.416R) lekin sirf 133 trades ka sample hai.
+⚠️ Ye sirf **H1** par sach hai. H4 par zones random se behtar nahi nikle — niche
+H4 section dekho.
 
 ---
 
@@ -190,7 +185,83 @@ iPass         = iStrong and htfOK and impulseOK
 Bas itna. Bullish-only pehle se possible hai (`Show Bearish IFVG` OFF karke),
 aur SL buffer / R:R Risk Tools group me already inputs hain.
 
+⚠️ **Is filter ko sirf H1 par ON rakhna.** H4 par Impulse ka koi asar nahi mila
+(farak −0.010R train, −0.048R test), isliye wahan ise OFF rakho.
+
 ---
+
+## H4 par alag se test (kyunki Pine header 15M+4H+1D recommend karta hai)
+
+Wahi poora analysis H4 par bhi chalaya (3,635 bars, 303 conversions, HTF filter =
+Daily EMA(50), jo Pine ka auto-HTF rule hai 4H chart ke liye).
+
+### Direction filter H4 par aur bhi strong hai
+
+| | Train | Test (unseen) |
+|---|---|---|
+| **Bullish IFVG** | +0.427R (88) | **+0.394R** (45) ✅ |
+| **Bearish IFVG** | −0.303R (87) | **−0.425R** (72) ❌ |
+
+Bullish dono halves me lagbhag same raha (+0.427 → +0.394) — ye is poore study ka
+sabse stable finding hai, dono timeframes par.
+
+### ⚠️ Impulse H4 par kaam NAHI karta
+
+| | H1 | H4 |
+|---|---|---|
+| I ka farak (train) | **+0.534R** | −0.010R |
+| I ka farak (test) | **+0.201R** | −0.048R |
+
+**Ye upar wali "Impulse zaroori" recommendation sirf H1 ke liye hai.** H4 par ye
+filter kuch nahi karta — us par mat lagao.
+
+### Factors timeframe ke saath palat jaate hain
+
+| Star | H1 ka farak | H4 ka farak |
+|---|---|---|
+| I (Impulse) | **+0.349R** | −0.002R |
+| H (Huge) | **−0.207R** | **+0.394R** |
+| S (Sweep) | −0.192R | −0.219R |
+| D (Displacement) | +0.048R | +0.046R |
+
+H ka sign hi ulta ho jaata hai. Jo factor ek timeframe par madad kare aur doosre
+par nuksan, us par bharosa nahi kiya ja sakta — wo shayad noise hai. **S dono par
+nuksan karta hai** — ye ek factor hai jo consistently replicate hua.
+
+### Null test — yahi decide karta hai
+
+Direction-matched (random entries ka same bullish/bearish mix):
+
+| | IFVG zones | Random levels | p | Verdict |
+|---|---|---|---|---|
+| **H1 mixed** | +0.260R | −0.048R | **0.000** | zones behtar ✅ |
+| **H1 bullish-only** | +0.549R | +0.211R | **0.010** | zones behtar ✅ |
+| H4 mixed | +0.092R | −0.022R | 0.230 | farak nahi ❌ |
+| H4 bullish-only | +0.411R | +0.578R | 0.750 | farak nahi ❌ |
+
+**H1 par IFVG zones sach me random levels se behtar hain. H4 par nahi** — wahan
+random long entries ne actually thoda behtar kiya. Matlab H4 ka "bullish edge"
+zone ki wajah se nahi, market ke upar jaane ki wajah se hai.
+
+### H1 vs H4 — seedha comparison (same combo: bullish + SL 0.8 + RR 1:4 + HTF)
+
+| | Trades | Win | Expectancy | PF | Max DD | Trades/month |
+|---|---|---|---|---|---|---|
+| **H1** | 159 | 34.0% | **+0.648R** | 1.93 | −14.7R | 5.5 |
+| H4 | 57 | 28.1% | +0.354R | 1.47 | −12.3R | 2.0 |
+
+**H1 use karo, H4 nahi** — zyada trades, behtar expectancy, aur zones wahan
+actually signal carry karte hain.
+
+Agar phir bhi H4 par chalana hai: **bullish-only + SL 0.8 ATR + RR 1:4, Impulse
+filter ke bina**. Test par +0.557R aaya lekin sirf 28 trades par — aur null test
+kehta hai wo random longs se alag nahi hai.
+
+### 15M par test possible nahi
+
+Yahoo Finance intraday (15m/30m) ka sirf **60 din** ka history deta hai. Us
+window me is setup ke ~10-20 trades honge — kisi bhi conclusion ke liye bahut kam.
+15M par backtest chahiye to paid data source lagega.
 
 ## Imaandari se
 
@@ -201,6 +272,8 @@ aur SL buffer / R:R Risk Tools group me already inputs hain.
   aasani se overfit ho jaati hai** — isliye maine grid-best ke bajaye structural
   filters (direction, impulse, HTF) recommend kiye, jo dono halves me tike.
 - Data futures (GC=F) ka hai; tumhare broker ka spot/CFD feed thoda alag hoga.
+- H4 bars H1 se resample karke banaye (Yahoo native 4h nahi deta), isliye bar boundaries TradingView ke 4H se thode alag ho sakte hain.
+- Factors ka timeframe ke saath palat jaana (H ka sign) batata hai ki inme se kaafi kuch shayad noise hai — sirf **direction** dono timeframes par consistent raha.
 - Overnight gaps aur weekend risk model nahi kiye gaye.
 
 **Live paisa lagane se pehle demo par 2-3 mahine chalao**, aur risk 1-2% se zyada
