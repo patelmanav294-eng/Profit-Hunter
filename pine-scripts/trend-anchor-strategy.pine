@@ -6,8 +6,16 @@
 //@version=5
 strategy("Trend Anchor Strategy", shorttitle="TA Strategy", overlay=true,
      initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=1,
-     commission_type=strategy.commission.percent, commission_value=input.float(0.02, "Commission %"),
-     slippage=input.int(2, "Slippage (ticks)"), pyramiding=0, process_orders_on_close=true)
+     commission_type=strategy.commission.percent, commission_value=0.02,
+     slippage=30, pyramiding=0, process_orders_on_close=true)
+// NOTE: strategy() ke andar input.float()/input.int() nahi chalta — Pine v5 yahan `const`
+// maangta hai. Commission aur slippage badalne ho to Strategy Tester ke "Properties" tab
+// se badlo, ya yahan ka literal edit karo.
+//
+// Slippage 30 ticks kyun: XAUUSD par 1 tick = $0.01, to 30 ticks = $0.30 per side —
+// asli gold spread ke aas-paas. Purana default 2 ticks ($0.02) tha jo ~15x kam cost
+// dikhata tha aur results ko jhoota acha bana deta tha. Apne broker ke hisab se badlo;
+// Silver/Oil par mintick alag hai to ye number bhi alag hoga.
 
 // ============ INPUTS ============
 grpTrend = "Trend (EMA)"
@@ -31,7 +39,7 @@ minAtrRatio = input.float(0.8, "Min ATR / ATR-Average Ratio", minval=0.1, step=0
 
 grpTrendFilter = "Higher Timeframe Trend Filter"
 useHtfFilter = input.bool(true, "HTF Trend Filter On/Off", group=grpTrendFilter,
-     tooltip="ISE OFF MAT KARO. Testing me ye filter is strategy ka sabse bada edge nikla — iske bina Gold ka out-of-sample expectancy +0.29R se -0.06R ho jaata hai. OFF karne se signals zyada aate hain, lekin quality khatam ho jaati hai.")
+     tooltip="Default ON rakho. 8 Aug 2026 ke re-test me fayda expectancy me nahi, robustness me dikha: grid ki 93% settings out-of-sample profitable rahi (filter ke bina 78%), median OOS expectancy dono me barabar (+0.306R vs +0.293R). Purana dawa ki iske bina expectancy +0.29R se -0.06R ho jaata hai — ab reproduce nahi hota.")
 htfRes = input.timeframe("240", "Higher Timeframe", group=grpTrendFilter)
 htfEmaLen = input.int(50, "HTF EMA Length", group=grpTrendFilter)
 
@@ -44,7 +52,8 @@ tp2RR = input.float(5.0, "TP2 R:R (final target)", minval=0.5, step=0.1, group=g
      tooltip="Baaki position yahan tak chalti hai. Defaults Gold ke liye hain. Silver: SL 1.0x / TP1 1:2 / TP2 1:3. UKOil par ye strategy out-of-sample test me fail hui — usse avoid karo.")
 moveSlToBreakeven = input.bool(true, "TP1 hit hone par SL Breakeven (Cost to Cost) pe move karo", group=grpRisk)
 allowLongs = input.bool(true, "Allow Long Trades", group=grpRisk)
-allowShorts = input.bool(true, "Allow Short Trades", group=grpRisk)
+allowShorts = input.bool(false, "Allow Short Trades", group=grpRisk,
+     tooltip="Default OFF. Shorts har timeframe par paisa khaate mile (H1 par -0.08R, 26-saal daily par -0.354R). Signal indicator aur backtest.py dono longs-only chalte hain — ise ON karoge to tester ka result documented numbers se match nahi karega.")
 
 grpBacktest = "Backtest Window"
 startDate = input.time(timestamp("2023-01-01T00:00:00"), "Backtest Start Date", group=grpBacktest)
@@ -103,26 +112,36 @@ if sellSignal and allowShorts and strategy.position_size >= 0
     tp1Hit := false
     strategy.entry("Short", strategy.short)
 
-slTicks = (entryAtr * slAtrMultiplier) / syminfo.mintick
-tp1Ticks = slTicks * tp1RR
-tp2Ticks = slTicks * tp2RR
-
-// detect TP1 fill (approximates the actual TP1 exit order) so SL can move to breakeven for the runner
-if strategy.position_size > 0 and not tp1Hit and (high - entryPriceLocked) >= tp1Ticks * syminfo.mintick
-    tp1Hit := true
-
-if strategy.position_size < 0 and not tp1Hit and (entryPriceLocked - low) >= tp1Ticks * syminfo.mintick
-    tp1Hit := true
-
-activeSlTicks = (moveSlToBreakeven and tp1Hit) ? 0.0 : slTicks
+// Levels absolute price me nikaalte hain, ticks me nahi. Isse breakeven wali `loss=0`
+// ambiguity hi nahi bachti (Pine me 0-tick stop ka behaviour bharosemand nahi hai).
+isLongPos = strategy.position_size > 0
+riskDist = entryAtr * slAtrMultiplier
+fullStop = isLongPos ? entryPriceLocked - riskDist : entryPriceLocked + riskDist
+stopLvl = (moveSlToBreakeven and tp1Hit) ? entryPriceLocked : fullStop
+tp1Lvl = isLongPos ? entryPriceLocked + riskDist * tp1RR : entryPriceLocked - riskDist * tp1RR
+tp2Lvl = isLongPos ? entryPriceLocked + riskDist * tp2RR : entryPriceLocked - riskDist * tp2RR
 
 if strategy.position_size > 0
-    strategy.exit("Long TP1", from_entry="Long", qty_percent=tp1QtyPercent, profit=tp1Ticks, loss=activeSlTicks)
-    strategy.exit("Long TP2", from_entry="Long", qty_percent=100, profit=tp2Ticks, loss=activeSlTicks)
+    // TP1 order sirf tab tak jab tak wo fill nahi hua. `not tp1Hit` guard ke bina Pine
+    // har bar naya "Long TP1" order banata hai — TP1 ke baad price limit ke paar hoti
+    // hai, to runner ka aur 50% turant kat jaata hai aur TP2 tak kuch bachta hi nahi.
+    if not tp1Hit
+        strategy.exit("Long TP1", from_entry="Long", qty_percent=tp1QtyPercent, limit=tp1Lvl, stop=stopLvl)
+    strategy.exit("Long TP2", from_entry="Long", limit=tp2Lvl, stop=stopLvl)
 
 if strategy.position_size < 0
-    strategy.exit("Short TP1", from_entry="Short", qty_percent=tp1QtyPercent, profit=tp1Ticks, loss=activeSlTicks)
-    strategy.exit("Short TP2", from_entry="Short", qty_percent=100, profit=tp2Ticks, loss=activeSlTicks)
+    if not tp1Hit
+        strategy.exit("Short TP1", from_entry="Short", qty_percent=tp1QtyPercent, limit=tp1Lvl, stop=stopLvl)
+    strategy.exit("Short TP2", from_entry="Short", limit=tp2Lvl, stop=stopLvl)
+
+// TP1 fill detection — jaan boojh kar exit orders ke BAAD rakha hai, taaki breakeven
+// stop agle bar se lage. backtest.py bhi yahi karta hai: jis bar TP1 laga, usi bar
+// stop nahi hilta.
+if strategy.position_size > 0 and not tp1Hit and high >= tp1Lvl
+    tp1Hit := true
+
+if strategy.position_size < 0 and not tp1Hit and low <= tp1Lvl
+    tp1Hit := true
 
 // ============ PLOTTING ============
 plot(showEmas ? emaFast : na, "Fast EMA", color=color.new(color.yellow, 0), linewidth=1)

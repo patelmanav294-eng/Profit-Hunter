@@ -123,12 +123,21 @@ LONGS_ONLY = True
 
 def build_htf_trend(df_1h: pd.DataFrame) -> pd.Series:
     """4H EMA(50) trend, aligned back to the 1H index using only *closed* 4H bars
-    (mirrors Pine's request.security(..., lookahead=barmerge.lookahead_off))."""
-    htf = df_1h.set_index("time")["close"].resample("4h", label="right", closed="right").last().dropna()
+    (mirrors Pine's request.security(..., lookahead=barmerge.lookahead_off) on history).
+
+    Yahoo stamps each bar with its OPEN time, so bin with label/closed="left": the bin
+    labelled 00:00 holds the 1H bars opening 00:00-03:00, i.e. the 00:00-04:00 price
+    action, and only becomes readable at 04:00. Shifting the index forward by one HTF
+    period encodes exactly that — no peeking, and no extra staleness either.
+
+    The old version used label/closed="right" plus .shift(1), which sampled a bin one
+    step further back and left the filter ~1 HTF bar staler than the Pine indicator that
+    actually gets traded. That disagreed on 0.55% of bars (62 vs 63 Gold trades).
+    """
+    htf = df_1h.set_index("time")["close"].resample("4h", label="left", closed="left").last().dropna()
     htf_ema = htf.ewm(span=HTF_EMA_LEN, adjust=False).mean()
-    # shift by one completed HTF bar so we never peek at the still-forming bar
-    htf_ema_confirmed = htf_ema.shift(1)
-    aligned = htf_ema_confirmed.reindex(df_1h["time"], method="ffill")
+    htf_ema.index = htf_ema.index + pd.Timedelta("4h")   # readable only once the bar closes
+    aligned = htf_ema.reindex(df_1h["time"], method="ffill")
     aligned.index = df_1h.index
     return aligned
 

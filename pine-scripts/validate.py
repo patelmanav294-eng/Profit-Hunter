@@ -51,7 +51,11 @@ def indicators(df, htf_bars):
     d["atr"] = bt.atr(d, bt.ATR_LEN)
     d["atr_avg"] = d["atr"].rolling(bt.ATR_AVG_LEN).mean()
 
-    htf_ema = d["close"].iloc[::htf_bars].ewm(span=bt.HTF_EMA_LEN, adjust=False).mean().shift(1)
+    # HTF groups of htf_bars each; take the LAST bar of every group as that group's close,
+    # then make the value readable only from the next bar on. Same no-lookahead alignment
+    # as backtest.build_htf_trend and as Pine's request.security on historical bars.
+    htf_ema = d["close"].iloc[htf_bars - 1::htf_bars].ewm(span=bt.HTF_EMA_LEN, adjust=False).mean()
+    htf_ema.index = htf_ema.index + 1
     d["htf_ema"] = htf_ema.reindex(d.index).ffill()
 
     cu = (d["ema_f"].shift(1) <= d["ema_s"].shift(1)) & (d["ema_f"] > d["ema_s"])

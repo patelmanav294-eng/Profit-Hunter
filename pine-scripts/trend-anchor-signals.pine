@@ -48,7 +48,7 @@ minAtrRatio = input.float(0.8, "Min ATR / ATR-Average", minval=0.1, step=0.05, g
 
 grpHtf = "Higher Timeframe Trend Filter"
 useHtfFilter = input.bool(true, "HTF Trend Filter", group=grpHtf,
-     tooltip="ISE OFF MAT KARO. Testing me ye is setup ka sabse bada edge nikla. OFF karne se signals kaafi zyada aate hain lekin quality khatam ho jaati hai.")
+     tooltip="Default ON rakho. 8 Aug 2026 ke re-test me iska fayda expectancy me nahi, robustness me dikha: parameter grid ki 93% settings out-of-sample profitable rahi (filter ke bina 78%). Lekin full sample par ON karne se net return kam (+32.9R vs +48.1R) aur drawdown zyada (-11.6R vs -7.6R) hua. Pehle wala 'iske bina edge khatam' dawa ab reproduce nahi hota — README dekho.")
 htfRes = input.timeframe("240", "Higher Timeframe", group=grpHtf)
 htfEmaLen = input.int(50, "HTF EMA Length", group=grpHtf)
 
@@ -80,6 +80,13 @@ rsiVal = ta.rsi(close, rsiLen)
 [macdLine, macdSig, macdHist] = ta.macd(close, macdFast, macdSlow, macdSigLen)
 atrVal = ta.atr(atrLen)
 atrAvg = ta.sma(atrVal, atrAvgLen)
+// Repaint note: realtime me request.security abhi ban rahe 4H bar ka EMA deta hai,
+// history me pichhle *band* 4H bar ka. Dono me value alag hoti hai — LEKIN yahan test
+// `close > EMA(close)` hai, aur EMA ka ek update sign nahi badalta
+// (close - EMAnew = (1-alpha)(close - EMApurana)), isliye signal live vs history kabhi
+// flip nahi hota. 13,769 H1 bars par verify kiya: 0 mismatch.
+// ⚠ Ye safety sirf EMA ki wajah se hai. Ise ta.sma ya kisi aur expression se badla to
+// repaint shuru ho jayega — tab `ta.xxx(close, len)[1]` + lookahead_on chahiye hoga.
 htfEma = request.security(syminfo.tickerid, htfRes, ta.ema(close, htfEmaLen), lookahead=barmerge.lookahead_off)
 
 volatilityOk = atrVal >= atrAvg * minAtrRatio
@@ -108,7 +115,11 @@ barOk = not confirmOnClose or barstate.isconfirmed
 newBuy = buyRaw and allowLongs and flat and barOk
 newSell = sellRaw and allowShorts and flat and barOk
 
-// --- manage an open position (checked before a new entry so one bar can close then re-open)
+// --- manage an open position. Ye block entry se pehle chalta hai taaki entry bar par hi
+// stop/TP check na ho jaye. Dhyan raho: `flat` upar (line ~106) compute hota hai, isliye
+// jis bar trade band hua usi bar naya trade nahi khulega — agla signal bar chahiye.
+// backtest.py same-bar re-entry allow karta hai, par Gold H1 ke 2 saal me aisa 0 baar
+// hua, to practical farak koi nahi.
 justHitTp1 = false
 justClosed = false
 closeReason = ""
@@ -176,7 +187,7 @@ plotchar(justHitTp1, title="TP1 hit", char="●", location=location.abovebar,
 // ============================================================
 f_px(p) => str.tostring(p, format.mintick)
 
-var table panel = table.new(position.top_right, 2, 7, border_width=1, frame_width=1)
+var table panel = table.new(position.top_right, 2, 8, border_width=1, frame_width=1)
 
 if showPanel and barstate.islast
     headBg = inTrade ? (tradeDir == 1 ? color.new(color.green, 25) : color.new(color.red, 25)) : color.new(color.gray, 40)
@@ -206,6 +217,13 @@ if showPanel and barstate.islast
     nextStep = not inTrade ? "Setup banne ka wait karo" : tp1Done ? "Stop breakeven par hai — TP2 tak chalne do" : "TP1 par 50% book karna hai"
     table.cell(panel, 0, 6, "Ab kya", text_color=color.silver, text_size=size.tiny)
     table.cell(panel, 1, 6, nextStep, text_color=color.silver, text_size=size.tiny)
+
+    // Sirf Gold out-of-sample validate hua hai. Silver ka 1R itna chhota hai ki spread
+    // hi edge kha jaata hai, aur UKOil out-of-sample fail hua — isliye saaf warning.
+    if not isGold
+        table.cell(panel, 0, 7, "⚠", text_color=color.orange, text_size=size.tiny)
+        table.cell(panel, 1, 7, "Sirf Gold validated hai — is symbol par edge prove nahi hua",
+             text_color=color.orange, text_size=size.tiny)
 
 // ============================================================
 // ALERTS
