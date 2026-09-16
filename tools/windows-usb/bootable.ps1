@@ -3,7 +3,7 @@
 
     Chalane ka tareeka - Admin PowerShell me ye ek line paste karo:
 
-        irm https://raw.githubusercontent.com/patelmanav294-eng/Profit-Hunter/main/tools/windows-usb/bootable.ps1 | iex
+        irm https://raw.githubusercontent.com/patelmanav294-eng/Profit-Hunter/claude/chat-session-0c1q0i/tools/windows-usb/bootable.ps1 | iex
 
     Koi parameter nahi chahiye. Script khud ISO dhoondhta hai, khud USB drives
     detect karta hai. Tumhe sirf ISO ka number chunna hai aur ERASE type karna hai.
