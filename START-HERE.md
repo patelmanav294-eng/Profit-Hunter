@@ -6,6 +6,21 @@ Gold trading tool. Ye file khol ke bas neeche ke steps follow karo.
 
 ## 1. Ek baar ka setup
 
+### Windows — ek line se sab (recommended)
+
+Admin PowerShell kholo (Start par right-click → **Terminal (Admin)**) aur paste karo:
+
+```
+irm https://raw.githubusercontent.com/patelmanav294-eng/Profit-Hunter/claude/chat-session-0c1q0i/tools/claude-code-setup/setup.ps1 | iex
+```
+
+Ye Node.js, Claude Code CLI, Python (pandas/numpy) aur repo — sab khud check/install karke
+Claude khol dega. Sirf ek manual step: pehli baar browser me apne account se login karna
+hoga (koi script isko bypass nahi kar sakta). Jo cheez pehle se hai use skip kar deta hai,
+isliye dobara chalana bhi safe hai.
+
+### Mac / Linux, ya manual (Windows par bhi chalega)
+
 Terminal kholo aur:
 
 ```bash
