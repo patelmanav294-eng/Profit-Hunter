@@ -113,14 +113,36 @@ if (-not $git) {
     return
 }
 $dest = Join-Path $env:USERPROFILE "Desktop\Profit-Hunter"
+# Pichhli baar clone beech me fail hui ho to adhoora folder pada reh jaata hai -
+# usme dobara clone nahi ho sakta ("not empty"), isliye pehle saaf karo.
+if ((Test-Path $dest) -and -not (Test-Path (Join-Path $dest ".git"))) {
+    if (Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue) {
+        Warn "Pichhli adhoori clone mili, hata raha hoon..."
+        Remove-Item -LiteralPath $dest -Recurse -Force
+    }
+}
+# git apni progress "Cloning into..." jaisi lines stderr par likhta hai - agar unhe
+# 2>&1 se success stream me daalo to $ErrorActionPreference='Stop' unhe error bana
+# deta hai, chahe git kaamyaab hi kyun na ho. Isliye yahan EAP locally 'Continue' aur
+# exit code se pata karte hain ki sach me fail hui ya nahi.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 if (Test-Path (Join-Path $dest ".git")) {
     Step "Pehle se hai, latest kheech raha hoon..."
     Push-Location $dest
-    git pull origin claude/chat-session-0c1q0i 2>&1 | Out-Null
+    git pull origin claude/chat-session-0c1q0i --quiet
+    $gitOk = ($LASTEXITCODE -eq 0)
     Pop-Location
 } else {
     Step "Desktop par clone kar raha hoon..."
-    git clone -b claude/chat-session-0c1q0i https://github.com/patelmanav294-eng/Profit-Hunter.git $dest 2>&1 | Out-Null
+    git clone -b claude/chat-session-0c1q0i --quiet `
+        https://github.com/patelmanav294-eng/Profit-Hunter.git $dest
+    $gitOk = ($LASTEXITCODE -eq 0)
+}
+$ErrorActionPreference = $prevEAP
+if (-not $gitOk) {
+    Write-Host "  Git clone/pull me error aayi (upar dekho)." -ForegroundColor Red
+    return
 }
 Ok "Ready: $dest"
 
